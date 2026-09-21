@@ -67,8 +67,10 @@ answers on `https://www.taimer.cards`, with the bare `taimer.cards` issuing a
 `robots.txt` names the bare domain, so if the apex is ever made primary the two
 line up exactly; if `www` stays primary, change those three files instead.
 
-`CNAME` and `.nojekyll` are left in place for GitHub Pages, which is not used
-now but would work from this same repository without further changes.
+GitHub Pages is not used. Its `CNAME` file has been removed, which is what
+released `taimer.cards` from Pages; `.nojekyll` is left behind because it costs
+nothing and is the piece that is easy to forget if Pages is ever switched back
+on, alongside a new `CNAME` holding the domain.
 
 When deploying a change that alters the page, stylesheet or script, bump
 `CACHE` in `sw.js` (`taimer-v2` → `taimer-v3`) so every device replaces its
@@ -108,5 +110,5 @@ visit, since the cached copy is served first and refreshed behind it.
 | `manifest.webmanifest` | Name, colours and icons for installing it on a phone |
 | `icon-*.png` | Home-screen icons (192, 512 and a maskable 512) |
 | `social-card.png` | The preview image shown when the link is shared |
-| `CNAME`, `robots.txt`, `sitemap.xml` | Custom domain and search-engine files |
+| `robots.txt`, `sitemap.xml` | What search engines read |
 | `404.html` | The not-found page, in the same colours |
