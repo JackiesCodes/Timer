@@ -1,5 +1,7 @@
 # TAIMER
 
+**[taimer.cards](https://taimer.cards/)**
+
 A paper-style employee time card that adds up the hours and works out the pay.
 It is a faithful digital copy of the printed time sheet — same columns, same
 A / B / C summary — with the arithmetic done for you.
@@ -50,6 +52,40 @@ Helvetica and Segoe UI) throughout, so it reads like a payroll document on
 screen and on paper. Tints of the same blues mark weekends, public holidays and
 days off, and figures are set in tabular numerals so the columns line up.
 
+## Putting it on taimer.cards
+
+The repository is the site — there is nothing to build. `CNAME` already holds
+`taimer.cards`, so on **GitHub Pages**: *Settings → Pages*, source *Deploy from
+a branch*, pick this branch and the `/ (root)` folder, then set the custom
+domain to `taimer.cards` and tick **Enforce HTTPS** once the certificate is
+issued.
+
+At the registrar, point the domain at Pages:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| AAAA | `@` | `2606:50c0:8000::153` |
+| AAAA | `@` | `2606:50c0:8001::153` |
+| AAAA | `@` | `2606:50c0:8002::153` |
+| AAAA | `@` | `2606:50c0:8003::153` |
+| CNAME | `www` | `<your-github-username>.github.io.` |
+
+DNS usually settles within an hour, and the HTTPS certificate follows a few
+minutes later. HTTPS matters here beyond privacy: the service worker that makes
+the sheet work offline only runs on a secure origin.
+
+Hosting it somewhere else instead (Netlify, Vercel, Cloudflare Pages) needs no
+change to the files — publish the folder as-is, add `taimer.cards` as the
+custom domain there, and delete `CNAME`, which only GitHub Pages reads.
+
+The canonical URL, the social-preview card and the sitemap all name
+`https://taimer.cards/`; if the domain ever changes, those live in
+`index.html`, `sitemap.xml` and `robots.txt`.
+
 ## Offline and on the home screen
 
 The sheet is a small installable app. Served over HTTPS (or from `localhost`),
@@ -82,3 +118,6 @@ visit, since the cached copy is served first and refreshed behind it.
 | `sw.js` | Service worker — caches the app so it runs with no connection |
 | `manifest.webmanifest` | Name, colours and icons for installing it on a phone |
 | `icon-*.png` | Home-screen icons (192, 512 and a maskable 512) |
+| `social-card.png` | The preview image shown when the link is shared |
+| `CNAME`, `robots.txt`, `sitemap.xml` | Custom domain and search-engine files |
+| `404.html` | The not-found page, in the same colours |

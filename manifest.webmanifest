@@ -1,5 +1,6 @@
 {
-  "name": "TAIMER — Time Card & Pay",
+  "id": "./",
+  "name": "TAIMER \u2014 Time Card & Pay",
   "short_name": "TAIMER",
   "description": "A paper-style employee time card that adds up the hours and works out the pay.",
   "start_url": "./index.html",
@@ -8,9 +9,30 @@
   "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#0a3c6e",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
+  "lang": "en",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

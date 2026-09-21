@@ -53,6 +53,12 @@ input, button, select { font-family: var(--sans); }
   letter-spacing: 3px;
 }
 .brand-mark span { color: var(--blue); }
+.brand-side {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
 .brand-tag {
   font-size: 11px;
   font-weight: 700;
@@ -60,6 +66,17 @@ input, button, select { font-family: var(--sans); }
   text-transform: uppercase;
   color: #b9cbdd;
 }
+.brand-domain {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  color: var(--white);
+  text-decoration: none;
+  border-bottom: 2px solid var(--blue);
+  padding-bottom: 1px;
+  white-space: nowrap;
+}
+.brand-domain:hover { color: #7cc2ea; }
 
 .wrap {
   max-width: 1080px;
@@ -598,6 +615,18 @@ table.pay tr.total td {
   background: var(--paper-edge);
 }
 
+.sheet-foot {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: lowercase;
+  color: var(--ink-soft);
+  text-align: right;
+}
+
 /* ── signatures ──────────────────────────────────────────────────────── */
 
 .sign-block {
@@ -659,6 +688,7 @@ table.pay tr.total td {
   .sheet { padding: 12px; }
 
   /* period start and end stay side by side */
+  .brand-tag { display: none; }
   .grid.period { grid-template-columns: 1fr 1fr; gap: 8px; }
   .grid.period .field input { font-size: 13px; padding: 7px 5px; }
   .grid.period .field > span { font-size: 9.5px; letter-spacing: .5px; }
