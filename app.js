@@ -25,6 +25,12 @@
     return Math.round((fromISO(b) - fromISO(a)) / 86400000);
   }
 
+  // Digits and a single decimal point — nothing else belongs in an hours,
+  // rate or multiplier box.
+  function decimalOnly(v) {
+    return String(v).replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+  }
+
   function num(v) {
     var n = parseFloat(v);
     return isFinite(n) ? n : 0;
@@ -130,16 +136,27 @@
     }
   }
 
+  // Toggling a flag or clearing a day leaves an empty record behind; drop
+  // those so the saved sheet does not grow without bound.
+  function pruneEntries() {
+    Object.keys(state.entries).forEach(function (k) {
+      var e = state.entries[k];
+      var keep = Object.keys(e).some(function (f) {
+        return e[f] !== '' && e[f] !== false && e[f] !== null && e[f] !== undefined;
+      });
+      if (!keep) delete state.entries[k];
+    });
+  }
+
   var saveTimer = null;
   function save() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () {
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (err) { /* private mode */ }
-    }, 150);
+    saveTimer = setTimeout(flushSave, 150);
   }
 
   function flushSave() {
     clearTimeout(saveTimer);
+    pruneEntries();
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (err) { /* private mode */ }
   }
 
@@ -207,7 +224,7 @@
     if (!start || !end) return out;
     var span = daysBetween(start, end);
     if (span < 0) { return out; }
-    if (span > 366) { span = 366; }
+    if (span > MAX_DAYS - 1) { span = MAX_DAYS - 1; }
     for (var i = 0; i <= span; i++) { out.push(iso(addDays(fromISO(start), i))); }
     return out;
   }
@@ -346,12 +363,16 @@
     $('#payNote').textContent = 'Type 1 pays ' + m1 + '× the hourly rate; type 2 pays ' + m2 + '×.';
   }
 
+  var MAX_DAYS = 367;
+
   function renderHeader() {
     var s = state.period.start, e = state.period.end;
     var span = (s && e) ? daysBetween(s, e) + 1 : 0;
-    $('#sheetSub').textContent = (s && e && span > 0)
-      ? s + '  →  ' + e + '   ·   ' + span + ' day' + (span === 1 ? '' : 's')
-      : '—';
+    if (!s || !e || !(span > 0)) { $('#sheetSub').textContent = '—'; return; }
+    $('#sheetSub').textContent = s + '  →  ' + e + '   ·   ' +
+      (span > MAX_DAYS
+        ? span + ' days · showing the first ' + MAX_DAYS
+        : span + ' day' + (span === 1 ? '' : 's'));
   }
 
   /* ── bindings: profile & settings fields ──────────────────────────── */
@@ -374,11 +395,18 @@
     $('#periodEnd').value = state.period.end;
   }
 
+  var NUMERIC_FIELDS = ['rate', 'standardDay', 'ot1Mult', 'ot2Mult'];
+
   FIELD_MAP.forEach(function (pair) {
     var el = $(pair[0]);
     if (!el) return;
     el.addEventListener('input', function () {
-      state.profile[pair[1]] = el.value;
+      var value = el.value;
+      if (NUMERIC_FIELDS.indexOf(pair[1]) !== -1) {
+        value = decimalOnly(value);
+        if (value !== el.value) el.value = value;
+      }
+      state.profile[pair[1]] = value;
       syncProfileInputs();
       refresh();
     });
@@ -459,7 +487,7 @@
   body.addEventListener('input', function (ev) {
     var el = ev.target;
     if (!el.classList.contains('cell-input')) return;
-    var clean = el.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    var clean = decimalOnly(el.value);
     if (clean !== el.value) el.value = clean;
     var dISO = el.closest('tr').getAttribute('data-d');
     entry(dISO)[el.getAttribute('data-f')] = clean;
@@ -564,6 +592,7 @@
 
   function csv(v) {
     v = v == null ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;          // not a spreadsheet formula
     return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   }
 
@@ -594,8 +623,24 @@
     custom:   { label: 'the days you picked',     match: function (dow) { return customDays().indexOf(dow) !== -1; } }
   };
 
+  var MODE_NAMES = { all: 'All days', weekdays: 'Weekdays', weekend: 'Weekend', custom: 'Custom' };
+
   // Chips run Monday-first, the way the week reads on a roster.
   var CHIP_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+  // The panel eats a lot of a phone screen, so it starts closed there and
+  // remembers whichever way it was left.
+  var QF_OPEN_KEY = 'taimer.qfOpen';
+
+  function restoreQuickFillOpen() {
+    var panel = $('#quickFill');
+    var saved = null;
+    try { saved = localStorage.getItem(QF_OPEN_KEY); } catch (err) { /* private mode */ }
+    panel.open = saved === null ? window.innerWidth > 640 : saved === '1';
+    panel.addEventListener('toggle', function () {
+      try { localStorage.setItem(QF_OPEN_KEY, panel.open ? '1' : '0'); } catch (err) { /* private mode */ }
+    });
+  }
 
   function customDays() {
     return Array.isArray(state.profile.fillDays) ? state.profile.fillDays : [];
@@ -651,13 +696,18 @@
       tr.classList.toggle('target', !!lookup[tr.getAttribute('data-d')]);
     });
 
+    var day = num(state.profile.fillAm) + num(state.profile.fillPm);
+
     $('#fillCount').textContent = targets.length;
-    $('#fillBtn').disabled = targets.length === 0;
+    $('#fillBtn').disabled = targets.length === 0 || day <= 0;
     $('#fillClearBtn').disabled = selectedDates().length === 0;
 
-    var day = num(state.profile.fillAm) + num(state.profile.fillPm);
     if (!FILL_MODES[mode]) {
       $('#qfNote').textContent = 'Pick a pattern to fill the sheet.';
+    } else if (day <= 0) {
+      $('#qfNote').textContent = 'Set the morning and afternoon hours to fill with.';
+    } else if (mode === 'custom' && !customDays().length) {
+      $('#qfNote').textContent = 'Tick the days of the week you want to fill.';
     } else if (!targets.length) {
       $('#qfNote').textContent = 'Nothing to fill — no matching day is left in this period.';
     } else {
@@ -665,10 +715,16 @@
         ' · ' + FILL_MODES[mode].label + ' · ' + hrs(day) + ' hours each' +
         (state.profile.weekendIsOt2 ? '. Weekend and public-holiday hours land in type 2 automatically.' : '.');
     }
+
+    // The closed panel still has to say what it is set to.
+    $('#qfState').textContent = FILL_MODES[mode]
+      ? MODE_NAMES[mode] + ' · ' + hrs(day) + ' h · ' + targets.length + ' day' + (targets.length === 1 ? '' : 's')
+      : 'Not set';
   }
 
   function bindQuickFill() {
     renderDayChips();
+    restoreQuickFillOpen();
 
     Array.prototype.forEach.call(document.querySelectorAll('input[name="fillMode"]'), function (radio) {
       radio.addEventListener('change', function () {
@@ -692,7 +748,7 @@
 
     [['#fillAm', 'fillAm'], ['#fillPm', 'fillPm']].forEach(function (pair) {
       $(pair[0]).addEventListener('input', function () {
-        var clean = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+        var clean = decimalOnly(this.value);
         if (clean !== this.value) this.value = clean;
         state.profile[pair[1]] = clean;
         syncQuickFill();
@@ -717,6 +773,7 @@
       renderRows();
       $('#qfNote').textContent = 'Filled ' + targets.length + ' day' + (targets.length === 1 ? '' : 's') +
         ' — edit any of them by hand from here.';
+      $('#fillBtn').focus();
     });
 
     $('#fillClearBtn').addEventListener('click', function () {
@@ -734,10 +791,31 @@
     });
   }
 
+  /* ── offline ──────────────────────────────────────────────────────── */
+
+  // Registering the worker keeps the sheet openable with no connection at
+  // all. It needs a real origin, so opening the file straight from disk
+  // (file://) simply skips it — that copy is already offline anyway.
+  function goOffline() {
+    var note = $('#offlineNote');
+    var https = location.protocol === 'https:' || location.hostname === 'localhost' ||
+                location.hostname === '127.0.0.1';
+
+    if (!('serviceWorker' in navigator) || !https) {
+      if (note && location.protocol === 'file:') note.textContent = 'Opened from this device — works offline.';
+      return;
+    }
+
+    navigator.serviceWorker.register('sw.js').then(function () {
+      if (note) note.textContent = 'Saved for offline use — open it again with no connection.';
+    }).catch(function () { /* nothing to tell the user if it could not register */ });
+  }
+
   /* ── go ───────────────────────────────────────────────────────────── */
 
   syncProfileInputs();
   bindQuickFill();
   renderHeader();
   renderRows();
+  goOffline();
 })();

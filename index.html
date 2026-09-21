@@ -6,6 +6,12 @@
 <title>TAIMER — Time Card &amp; Pay</title>
 <meta name="description" content="TAIMER — a paper-style employee time sheet that calculates normal hours, overtime and pay." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230A3C6E'/%3E%3Ctext x='16' y='23' font-family='Arial,Helvetica,sans-serif' font-size='18' font-weight='bold' fill='%231783C1' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E" />
+<meta name="theme-color" content="#0a3c6e" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="TAIMER" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -27,7 +33,7 @@
       </div>
     </div>
 
-    <div class="grid">
+    <div class="grid period">
       <label class="field">
         <span>Period start</span>
         <input type="date" id="periodStart" />
@@ -83,7 +89,7 @@
       <button type="button" class="btn" id="csvBtn">Export CSV</button>
       <button type="button" class="btn danger" id="clearBtn">Clear period</button>
     </div>
-    <p class="hint">Everything is saved on this device only — nothing is uploaded.</p>
+    <p class="hint">Everything is saved on this device only — nothing is uploaded. <span id="offlineNote"></span></p>
   </section>
 
   <!-- ─────────────── the sheet ─────────────── -->
@@ -110,33 +116,40 @@
         </div>
       </div>
 
-      <div class="quickfill no-print" id="quickFill">
-        <div class="qf-head">
+      <details class="quickfill no-print" id="quickFill">
+        <summary class="qf-summary">
           <span class="qf-title">Quick fill</span>
-          <label class="qf-hrs"><span>Morning</span><input type="text" inputmode="decimal" id="fillAm" /></label>
-          <label class="qf-hrs"><span>Afternoon</span><input type="text" inputmode="decimal" id="fillPm" /></label>
-        </div>
+          <span class="qf-state" id="qfState">Not set</span>
+          <span class="qf-chevron" aria-hidden="true"></span>
+        </summary>
 
-        <div class="qf-modes">
-          <label class="tick"><input type="radio" name="fillMode" value="all" /><span>Fill all</span></label>
-          <label class="tick"><input type="radio" name="fillMode" value="weekdays" /><span>Weekdays<small>Mon – Fri</small></span></label>
-          <label class="tick"><input type="radio" name="fillMode" value="weekend" /><span>Weekend<small>Sat &amp; Sun</small></span></label>
-          <label class="tick"><input type="radio" name="fillMode" value="custom" /><span>Custom<small>pick days</small></span></label>
-        </div>
+        <div class="qf-body">
+          <div class="qf-head">
+            <label class="qf-hrs"><span>Morning</span><input type="text" inputmode="decimal" id="fillAm" /></label>
+            <label class="qf-hrs"><span>Afternoon</span><input type="text" inputmode="decimal" id="fillPm" /></label>
+          </div>
 
-        <div class="qf-custom" id="qfCustom" hidden>
-          <span class="qf-label">Days to fill</span>
-          <div class="qf-days" id="qfDays"></div>
-        </div>
+          <div class="qf-modes">
+            <label class="tick"><input type="radio" name="fillMode" value="all" /><span>Fill all</span></label>
+            <label class="tick"><input type="radio" name="fillMode" value="weekdays" /><span>Weekdays<small>Mon – Fri</small></span></label>
+            <label class="tick"><input type="radio" name="fillMode" value="weekend" /><span>Weekend<small>Sat &amp; Sun</small></span></label>
+            <label class="tick"><input type="radio" name="fillMode" value="custom" /><span>Custom<small>pick days</small></span></label>
+          </div>
 
-        <div class="qf-actions">
-          <button type="button" class="btn" id="fillBtn">Fill <span id="fillCount">0</span> days</button>
-          <button type="button" class="btn ghost" id="fillClearBtn">Clear those days</button>
-          <label class="check"><input type="checkbox" id="fillKeep" /><span>Leave days that already have hours</span></label>
-        </div>
+          <div class="qf-custom" id="qfCustom" hidden>
+            <span class="qf-label">Days to fill</span>
+            <div class="qf-days" id="qfDays"></div>
+          </div>
 
-        <p class="qf-note" id="qfNote">Pick a pattern to fill the sheet.</p>
-      </div>
+          <div class="qf-actions">
+            <button type="button" class="btn" id="fillBtn">Fill <span id="fillCount">0</span> days</button>
+            <button type="button" class="btn ghost" id="fillClearBtn">Clear those days</button>
+            <label class="check"><input type="checkbox" id="fillKeep" /><span>Leave days that already have hours</span></label>
+          </div>
+
+          <p class="qf-note" id="qfNote">Pick a pattern to fill the sheet.</p>
+        </div>
+      </details>
 
       <div class="table-scroll">
         <table class="card" id="cardTable">

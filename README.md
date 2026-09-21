@@ -19,7 +19,9 @@ Open `index.html` in a browser. No build step, no server, no account.
   automatically (switch it off in *Pay settings* if your workplace does it
   differently). Botswana public holidays are built in, including the
   Easter-based ones.
-* **Quick fill**, sitting right above the table, fills the sheet in one tick:
+* **Quick fill**, sitting right above the table, fills the sheet in one tick
+  (on a phone it starts collapsed to a single line showing what it is set to,
+  and it remembers whether you left it open):
   *fill all*, *weekdays* (Mon–Fri), *weekend* (Sat & Sun), or *custom* — where
   you pick whichever days you like, Mondays only, Tuesdays and Thursdays, and
   so on. Set the morning and afternoon hours once (5 and 4 by default); the
@@ -48,6 +50,21 @@ Helvetica and Segoe UI) throughout, so it reads like a payroll document on
 screen and on paper. Tints of the same blues mark weekends, public holidays and
 days off, and figures are set in tabular numerals so the columns line up.
 
+## Offline and on the home screen
+
+The sheet is a small installable app. Served over HTTPS (or from `localhost`),
+it registers `sw.js`, which caches the page, the stylesheet, the script and the
+icons, so it opens with no connection at all — useful on site where there is no
+signal. `manifest.webmanifest` lets a phone add it to the home screen, where it
+opens full screen without browser chrome.
+
+Opened straight from disk (`file:///…/index.html`) it is offline by definition;
+the worker is skipped and the sheet works the same.
+
+When deploying a change, bump `CACHE` in `sw.js` (`taimer-v1` → `taimer-v2`) so
+every device picks the new files up at once; otherwise they arrive on the second
+visit, since the cached copy is served first and refreshed behind it.
+
 ## Notes
 
 * Everything is stored in the browser's local storage on that device only —
@@ -62,3 +79,6 @@ days off, and figures are set in tabular numerals so the columns line up.
 | `index.html` | The sheet's structure — header block, table, pay block |
 | `styles.css` | The paper look, plus the mobile and print layouts |
 | `app.js` | Dates, holidays, the hour and pay calculations, saving, CSV |
+| `sw.js` | Service worker — caches the app so it runs with no connection |
+| `manifest.webmanifest` | Name, colours and icons for installing it on a phone |
+| `icon-*.png` | Home-screen icons (192, 512 and a maskable 512) |
