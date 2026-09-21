@@ -52,39 +52,28 @@ Helvetica and Segoe UI) throughout, so it reads like a payroll document on
 screen and on paper. Tints of the same blues mark weekends, public holidays and
 days off, and figures are set in tabular numerals so the columns line up.
 
-## Putting it on taimer.cards
+## How it is hosted
 
-The repository is the site — there is nothing to build. `CNAME` already holds
-`taimer.cards`, so on **GitHub Pages**: *Settings → Pages*, source *Deploy from
-a branch*, pick this branch and the `/ (root)` folder, then set the custom
-domain to `taimer.cards` and tick **Enforce HTTPS** once the certificate is
-issued.
+The site runs on **Vercel**, in the project `timer` (team *JackiesCode's
+projects*), linked to this repository with `main` as the production branch.
+There is no build step — the files are served as they are — so a push to `main`
+deploys itself, and a push to any other branch gets a preview URL instead.
 
-At the registrar, point the domain at Pages:
+`taimer.cards` was registered through Vercel, so the domain, its DNS zone
+(`ns1`/`ns2.vercel-dns.com`) and the HTTPS certificate all live in the same
+account; nothing needs to be configured at a registrar. The site currently
+answers on `https://www.taimer.cards`, with the bare `taimer.cards` issuing a
+308 redirect to it. The canonical URL in `index.html`, `sitemap.xml` and
+`robots.txt` names the bare domain, so if the apex is ever made primary the two
+line up exactly; if `www` stays primary, change those three files instead.
 
-| Type | Name | Value |
-| --- | --- | --- |
-| A | `@` | `185.199.108.153` |
-| A | `@` | `185.199.109.153` |
-| A | `@` | `185.199.110.153` |
-| A | `@` | `185.199.111.153` |
-| AAAA | `@` | `2606:50c0:8000::153` |
-| AAAA | `@` | `2606:50c0:8001::153` |
-| AAAA | `@` | `2606:50c0:8002::153` |
-| AAAA | `@` | `2606:50c0:8003::153` |
-| CNAME | `www` | `<your-github-username>.github.io.` |
+`CNAME` and `.nojekyll` are left in place for GitHub Pages, which is not used
+now but would work from this same repository without further changes.
 
-DNS usually settles within an hour, and the HTTPS certificate follows a few
-minutes later. HTTPS matters here beyond privacy: the service worker that makes
-the sheet work offline only runs on a secure origin.
-
-Hosting it somewhere else instead (Netlify, Vercel, Cloudflare Pages) needs no
-change to the files — publish the folder as-is, add `taimer.cards` as the
-custom domain there, and delete `CNAME`, which only GitHub Pages reads.
-
-The canonical URL, the social-preview card and the sitemap all name
-`https://taimer.cards/`; if the domain ever changes, those live in
-`index.html`, `sitemap.xml` and `robots.txt`.
+When deploying a change that alters the page, stylesheet or script, bump
+`CACHE` in `sw.js` (`taimer-v2` → `taimer-v3`) so every device replaces its
+cached copy at once; otherwise the new files arrive on the second visit, since
+the cached copy is served first and refreshed behind it.
 
 ## Offline and on the home screen
 
