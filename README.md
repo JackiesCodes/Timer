@@ -40,6 +40,14 @@ Open `index.html` in a browser. No build step, no server, no account.
 * **Print / PDF** gives you a clean sheet with the controls stripped out, and
   **Export CSV** hands the same figures to a spreadsheet.
 
+## Look
+
+The sheet uses the *Financial Stability* palette — navy `#0A3C6E`, white
+`#FFFFFF`, blue `#1783C1` and charcoal `#333333` — with Arial (falling back to
+Helvetica and Segoe UI) throughout, so it reads like a payroll document on
+screen and on paper. Tints of the same blues mark weekends, public holidays and
+days off, and figures are set in tabular numerals so the columns line up.
+
 ## Notes
 
 * Everything is stored in the browser's local storage on that device only —

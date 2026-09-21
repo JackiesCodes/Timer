@@ -264,7 +264,7 @@
 
   function sigCell(field, on) {
     return '<td class="sig strike"><input type="checkbox" data-f="' + field + '"' + (on ? ' checked' : '') + ' />' +
-      '<span class="tick">' + (on ? '&#10003;' : '') + '</span></td>';
+      '<span class="sigmark">' + (on ? '&#10003;' : '') + '</span></td>';
   }
 
   function refresh() {
@@ -287,7 +287,7 @@
 
       Array.prototype.forEach.call(tr.querySelectorAll('td.sig'), function (td) {
         var box = td.querySelector('input');
-        td.querySelector('.tick').innerHTML = box.checked ? '&#10003;' : '';
+        td.querySelector('.sigmark').innerHTML = box.checked ? '&#10003;' : '';
       });
 
       totals.a += day.normal;
