@@ -15,9 +15,18 @@ Open `index.html` in a browser. No build step, no server, no account.
 * **Adds up the hours as you type.** Morning + afternoon fills the *normal
   hours* column, capped at the standard working day (9 hours by default).
   Anything over the cap drops into overtime type 1.
-* **Sundays and public holidays** go under overtime type 2 automatically
-  (switch it off in *Pay settings* if your workplace does it differently).
-  Botswana public holidays are built in, including the Easter-based ones.
+* **Saturdays, Sundays and public holidays** go under overtime type 2
+  automatically (switch it off in *Pay settings* if your workplace does it
+  differently). Botswana public holidays are built in, including the
+  Easter-based ones.
+* **Quick fill**, sitting right above the table, fills the sheet in one tick:
+  *fill all*, *weekdays* (Mon–Fri), *weekend* (Sat & Sun), or *custom* — where
+  you pick whichever days you like, Mondays only, Tuesdays and Thursdays, and
+  so on. Set the morning and afternoon hours once (5 and 4 by default); the
+  days the pattern covers are marked in the table before you commit, and
+  *Clear those days* wipes the same selection. Tick *leave days that already
+  have hours* to top up the empty days only; struck-out days off are never
+  touched.
 * **Overtime stays editable.** The type 1 / type 2 boxes show the calculated
   figure in grey; type your own number to override a day, clear the box to go
   back to the calculated one.

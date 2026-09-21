@@ -99,7 +99,8 @@
       profile: {
         name: '', employeeId: '', nationality: '', startDate: '',
         currency: 'BWP', rate: '', standardDay: '9', ot1Mult: '1.5', ot2Mult: '2',
-        sundayIsOt2: true, autoHolidays: true
+        weekendIsOt2: true, autoHolidays: true,
+        fillAm: '5', fillPm: '4', fillMode: '', fillDays: [1, 2, 3, 4, 5], fillKeep: false
       },
       period: { start: iso(first), end: iso(last) },
       entries: {}
@@ -114,6 +115,11 @@
       var raw = localStorage.getItem(STORE_KEY);
       if (!raw) return base;
       var saved = JSON.parse(raw);
+      // Sheets saved before Saturdays counted as type 2 used a Sunday-only flag.
+      if (saved.profile && saved.profile.weekendIsOt2 === undefined &&
+          saved.profile.sundayIsOt2 !== undefined) {
+        saved.profile.weekendIsOt2 = saved.profile.sundayIsOt2;
+      }
       return {
         profile: Object.assign(base.profile, saved.profile || {}),
         period: Object.assign(base.period, saved.period || {}),
@@ -159,9 +165,9 @@
   function calcDay(dateISO) {
     var e = state.entries[dateISO] || {};
     var d = fromISO(dateISO);
-    var sunday = d.getDay() === 0;
+    var weekend = d.getDay() === 0 || d.getDay() === 6;
     var holiday = isHoliday(dateISO);
-    var restDay = !!state.profile.sundayIsOt2 && (sunday || holiday);
+    var restDay = !!state.profile.weekendIsOt2 && (weekend || holiday);
     var worked = num(e.am) + num(e.pm);
     var std = standardDay();
 
@@ -179,7 +185,8 @@
     var manual2 = e.ot2 !== undefined && e.ot2 !== '' && e.ot2 !== null;
 
     return {
-      sunday: sunday,
+      day: d.getDay(),
+      weekend: weekend,
       holiday: holiday,
       holidayName: holidayName(dateISO),
       off: !!e.off,
@@ -268,7 +275,7 @@
       var dISO = tr.getAttribute('data-d');
       var day = calcDay(dISO);
 
-      tr.classList.toggle('rest', day.sunday && !day.holiday && !day.off);
+      tr.classList.toggle('rest', day.weekend && !day.holiday && !day.off);
       tr.classList.toggle('holiday', day.holiday && !day.off);
       tr.classList.toggle('off', day.off);
 
@@ -294,6 +301,7 @@
     $('#totAll').textContent = hrs(totals.a + totals.b + totals.c);
 
     renderPay(totals);
+    syncQuickFill();
     save();
   }
 
@@ -360,7 +368,7 @@
       var el = $(pair[0]);
       if (el && el !== document.activeElement) el.value = state.profile[pair[1]] || '';
     });
-    $('#sundayIsOt2').checked = !!state.profile.sundayIsOt2;
+    $('#weekendIsOt2').checked = !!state.profile.weekendIsOt2;
     $('#autoHolidays').checked = !!state.profile.autoHolidays;
     $('#periodStart').value = state.period.start;
     $('#periodEnd').value = state.period.end;
@@ -376,8 +384,8 @@
     });
   });
 
-  $('#sundayIsOt2').addEventListener('change', function () {
-    state.profile.sundayIsOt2 = this.checked;
+  $('#weekendIsOt2').addEventListener('change', function () {
+    state.profile.weekendIsOt2 = this.checked;
     refresh();
   });
 
@@ -535,7 +543,7 @@
       t.a += day.normal; t.b += day.ot1; t.c += day.ot2;
       var note = day.off ? 'Day off'
         : day.holiday ? (day.holidayName || 'Public holiday')
-        : day.sunday ? 'Sunday' : '';
+        : day.weekend ? DAY_NAMES[day.day] + ' (weekend)' : '';
       lines.push([
         DAY_NAMES[fromISO(dISO).getDay()], dISO,
         e.am || '', e.pm || '',
@@ -577,9 +585,159 @@
     if (document.visibilityState === 'hidden') flushSave();
   });
 
+  /* ── quick fill ───────────────────────────────────────────────────── */
+
+  var FILL_MODES = {
+    all:      { label: 'every day in the period', match: function () { return true; } },
+    weekdays: { label: 'Monday to Friday',        match: function (dow) { return dow >= 1 && dow <= 5; } },
+    weekend:  { label: 'Saturdays and Sundays',   match: function (dow) { return dow === 0 || dow === 6; } },
+    custom:   { label: 'the days you picked',     match: function (dow) { return customDays().indexOf(dow) !== -1; } }
+  };
+
+  // Chips run Monday-first, the way the week reads on a roster.
+  var CHIP_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+  function customDays() {
+    return Array.isArray(state.profile.fillDays) ? state.profile.fillDays : [];
+  }
+
+  function renderDayChips() {
+    $('#qfDays').innerHTML = CHIP_ORDER.map(function (dow) {
+      var picked = customDays().indexOf(dow) !== -1;
+      var rest = dow === 0 || dow === 6;
+      return '<label class="daychip' + (rest ? ' is-rest' : '') + '">' +
+        '<input type="checkbox" data-day="' + dow + '"' + (picked ? ' checked' : '') + ' />' +
+        '<span>' + DAY_NAMES[dow] + '</span></label>';
+    }).join('');
+  }
+
+  // Days the current pattern would touch: inside the period, not struck out.
+  function selectedDates() {
+    var mode = FILL_MODES[state.profile.fillMode];
+    if (!mode) return [];
+    return periodDates().filter(function (dISO) {
+      var e = state.entries[dISO];
+      if (e && e.off) return false;
+      return mode.match(fromISO(dISO).getDay());
+    });
+  }
+
+  function hasHours(dISO) {
+    var e = state.entries[dISO];
+    return !!e && (num(e.am) > 0 || num(e.pm) > 0);
+  }
+
+  function fillTargets() {
+    var dates = selectedDates();
+    return state.profile.fillKeep ? dates.filter(function (d) { return !hasHours(d); }) : dates;
+  }
+
+  function syncQuickFill() {
+    var mode = state.profile.fillMode;
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="fillMode"]'), function (r) {
+      r.checked = r.value === mode;
+    });
+    $('#qfCustom').hidden = mode !== 'custom';
+    $('#fillKeep').checked = !!state.profile.fillKeep;
+    if ($('#fillAm') !== document.activeElement) $('#fillAm').value = state.profile.fillAm;
+    if ($('#fillPm') !== document.activeElement) $('#fillPm').value = state.profile.fillPm;
+
+    var targets = fillTargets();
+    var lookup = {};
+    targets.forEach(function (d) { lookup[d] = true; });
+
+    Array.prototype.forEach.call(body.querySelectorAll('tr[data-d]'), function (tr) {
+      tr.classList.toggle('target', !!lookup[tr.getAttribute('data-d')]);
+    });
+
+    $('#fillCount').textContent = targets.length;
+    $('#fillBtn').disabled = targets.length === 0;
+    $('#fillClearBtn').disabled = selectedDates().length === 0;
+
+    var day = num(state.profile.fillAm) + num(state.profile.fillPm);
+    if (!FILL_MODES[mode]) {
+      $('#qfNote').textContent = 'Pick a pattern to fill the sheet.';
+    } else if (!targets.length) {
+      $('#qfNote').textContent = 'Nothing to fill — no matching day is left in this period.';
+    } else {
+      $('#qfNote').textContent = targets.length + ' day' + (targets.length === 1 ? '' : 's') +
+        ' · ' + FILL_MODES[mode].label + ' · ' + hrs(day) + ' hours each' +
+        (state.profile.weekendIsOt2 ? '. Weekend and public-holiday hours land in type 2 automatically.' : '.');
+    }
+  }
+
+  function bindQuickFill() {
+    renderDayChips();
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="fillMode"]'), function (radio) {
+      radio.addEventListener('change', function () {
+        state.profile.fillMode = radio.value;
+        syncQuickFill();
+        save();
+      });
+    });
+
+    $('#qfDays').addEventListener('change', function (ev) {
+      var box = ev.target;
+      if (!box.hasAttribute('data-day')) return;
+      var dow = +box.getAttribute('data-day');
+      var days = customDays().filter(function (d) { return d !== dow; });
+      if (box.checked) days.push(dow);
+      state.profile.fillDays = days.sort();
+      state.profile.fillMode = 'custom';
+      syncQuickFill();
+      save();
+    });
+
+    [['#fillAm', 'fillAm'], ['#fillPm', 'fillPm']].forEach(function (pair) {
+      $(pair[0]).addEventListener('input', function () {
+        var clean = this.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+        if (clean !== this.value) this.value = clean;
+        state.profile[pair[1]] = clean;
+        syncQuickFill();
+        save();
+      });
+    });
+
+    $('#fillKeep').addEventListener('change', function () {
+      state.profile.fillKeep = this.checked;
+      syncQuickFill();
+      save();
+    });
+
+    $('#fillBtn').addEventListener('click', function () {
+      var targets = fillTargets();
+      if (!targets.length) return;
+      targets.forEach(function (dISO) {
+        var e = entry(dISO);
+        e.am = state.profile.fillAm;
+        e.pm = state.profile.fillPm;
+      });
+      renderRows();
+      $('#qfNote').textContent = 'Filled ' + targets.length + ' day' + (targets.length === 1 ? '' : 's') +
+        ' — edit any of them by hand from here.';
+    });
+
+    $('#fillClearBtn').addEventListener('click', function () {
+      var targets = selectedDates();
+      if (!targets.length) return;
+      if (!window.confirm('Clear the hours on ' + targets.length + ' selected day' +
+                          (targets.length === 1 ? '' : 's') + '?')) return;
+      targets.forEach(function (dISO) {
+        var e = state.entries[dISO];
+        if (!e) return;
+        delete e.am; delete e.pm; delete e.ot1; delete e.ot2;
+      });
+      renderRows();
+      $('#qfNote').textContent = 'Cleared ' + targets.length + ' day' + (targets.length === 1 ? '' : 's') + '.';
+    });
+  }
+
   /* ── go ───────────────────────────────────────────────────────────── */
 
   syncProfileInputs();
+  bindQuickFill();
   renderHeader();
   renderRows();
 })();

@@ -69,8 +69,8 @@
         </label>
       </div>
       <label class="check">
-        <input type="checkbox" id="sundayIsOt2" />
-        <span>Sunday &amp; public-holiday hours count as Type 2</span>
+        <input type="checkbox" id="weekendIsOt2" />
+        <span>Saturday, Sunday &amp; public-holiday hours count as Type 2</span>
       </label>
       <label class="check">
         <input type="checkbox" id="autoHolidays" />
@@ -108,6 +108,34 @@
           <label class="id-field"><span>Wage standard (per hour)</span><input type="text" inputmode="decimal" id="rateMirror" placeholder="0.00" /></label>
           <label class="id-field short"><span>Currency</span><input type="text" id="currencyMirror" maxlength="6" placeholder="BWP" /></label>
         </div>
+      </div>
+
+      <div class="quickfill no-print" id="quickFill">
+        <div class="qf-head">
+          <span class="qf-title">Quick fill</span>
+          <label class="qf-hrs"><span>Morning</span><input type="text" inputmode="decimal" id="fillAm" /></label>
+          <label class="qf-hrs"><span>Afternoon</span><input type="text" inputmode="decimal" id="fillPm" /></label>
+        </div>
+
+        <div class="qf-modes">
+          <label class="tick"><input type="radio" name="fillMode" value="all" /><span>Fill all</span></label>
+          <label class="tick"><input type="radio" name="fillMode" value="weekdays" /><span>Weekdays<small>Mon – Fri</small></span></label>
+          <label class="tick"><input type="radio" name="fillMode" value="weekend" /><span>Weekend<small>Sat &amp; Sun</small></span></label>
+          <label class="tick"><input type="radio" name="fillMode" value="custom" /><span>Custom<small>pick days</small></span></label>
+        </div>
+
+        <div class="qf-custom" id="qfCustom" hidden>
+          <span class="qf-label">Days to fill</span>
+          <div class="qf-days" id="qfDays"></div>
+        </div>
+
+        <div class="qf-actions">
+          <button type="button" class="btn" id="fillBtn">Fill <span id="fillCount">0</span> days</button>
+          <button type="button" class="btn ghost" id="fillClearBtn">Clear those days</button>
+          <label class="check"><input type="checkbox" id="fillKeep" /><span>Leave days that already have hours</span></label>
+        </div>
+
+        <p class="qf-note" id="qfNote">Pick a pattern to fill the sheet.</p>
       </div>
 
       <div class="table-scroll">
@@ -196,7 +224,7 @@
   </section>
 
   <p class="legend no-print">
-    <span class="key rest"></span> Sunday
+    <span class="key rest"></span> Weekend
     <span class="key hol"></span> Public holiday
     <span class="key off"></span> Day off
     — use <b>H</b> to mark a holiday and <b>×</b> to strike a day out.
