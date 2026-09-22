@@ -163,25 +163,28 @@
         </div>
 
         <label class="field win-field">
-          <span>Counted over</span>
+          <span>Service period — not the pay period above</span>
           <select id="benefitWindow">
-            <option value="period">This pay period</option>
+            <option value="custom">Dates of service (set below)</option>
+            <option value="period">Same as this pay period</option>
             <option value="ytd">Year to date</option>
             <option value="12m">Last 12 months</option>
-            <option value="all">Every month recorded</option>
-            <option value="custom">Custom range</option>
+            <option value="all">First to last day on record</option>
           </select>
         </label>
         <div class="grid" id="benefitCustom" hidden>
           <label class="field">
-            <span>From</span>
+            <span>Started work</span>
             <input type="date" id="benefitFrom" />
           </label>
           <label class="field">
-            <span>To</span>
+            <span>Last day</span>
             <input type="date" id="benefitTo" />
           </label>
         </div>
+        <p class="opt-note">Leave and severance count every month between these dates — they do not
+        depend on which hours were captured on the time sheet. Only the grant's percentage uses what
+        this sheet recorded.</p>
       </div>
     </details>
 

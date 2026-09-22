@@ -43,10 +43,12 @@ Open `index.html` in a browser. No build step, no server, no account.
     *Net pay* line under the period's total.
   * **Leave days**, **severance pay** and **grant / gratuity** — the things a
     company pays at the end of the year or when someone leaves. They appear in
-    their own block, under a **Counted over** setting: this pay period, year to
-    date, the last 12 months, every month recorded, or a range you choose.
-    Only months with hours actually written on a sheet are counted, and the
-    block says how many those are.
+    their own block, under a **Service period** setting — the dates of service,
+    which are not the pay period above: this pay period, year to date, the last
+    12 months, first to last day on record, or the dates you started and
+    finished. Leave and severance count every month between those dates
+    whether or not the hours reached this sheet, since they accrue on service;
+    only the grant's percentage uses what the sheet recorded.
   * Leave accrues per month at a rate you set (1.25 days a month is Botswana's
     15-day minimum). Severance takes days per month for the first five years
     and a second, higher rate after that (one day, then two, matching the

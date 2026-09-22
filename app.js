@@ -363,6 +363,27 @@
 
   function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, d.getDate()); }
 
+  // Service between two dates: whole months completed, and the same figure
+  // carrying the part-month on the end. 8 Jan to 26 Sep is 8 whole months
+  // and 8.6 counting the odd days.
+  function serviceMonths(fromDate, toDate) {
+    var a = fromISO(fromDate);
+    // The last day is worked too, so service runs to the following morning:
+    // 1 to 30 September is a whole month, not 29 days of one.
+    var b = addDays(fromISO(toDate), 1);
+    if (b < a) return { whole: 0, exact: 0 };
+
+    var whole = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    if (b.getDate() < a.getDate()) whole -= 1;
+    if (whole < 0) whole = 0;
+
+    var anchor = addMonths(a, whole);
+    var nextAnchor = addMonths(a, whole + 1);
+    var frac = (b - anchor) / (nextAnchor - anchor);
+    if (!isFinite(frac) || frac < 0) frac = 0;
+    return { whole: whole, exact: whole + frac };
+  }
+
   // The stretch of time the yearly / on-leaving figures are counted over.
   function benefitRange() {
     var p = state.profile;
@@ -389,8 +410,9 @@
     }
   }
 
-  // Only days actually written on a sheet count, so the figures follow the
-  // hours rather than a calendar the employee may not have worked.
+  // Leave and severance accrue because someone was employed, so they count
+  // the months between the dates of the window. Earnings can only come from
+  // the days actually written on a sheet, so both figures are reported.
   function benefitStats() {
     var range = benefitRange();
     var months = {};
@@ -405,9 +427,12 @@
       months[dISO.slice(0, 7)] = true;
     });
 
+    var service = serviceMonths(range.from, range.to);
     range.gross = gross;
     range.days = days;
-    range.months = Object.keys(months).length;
+    range.months = service.whole;          // completed months of service
+    range.exactMonths = service.exact;     // with the part-month on the end
+    range.recordedMonths = Object.keys(months).length;
     return range;
   }
 
@@ -427,7 +452,7 @@
 
     show('#leaveRow', p.leaveOn);
     if (p.leaveOn) {
-      var leaveDays = stats.months * num(p.leaveDays);
+      var leaveDays = stats.exactMonths * num(p.leaveDays);
       var leavePay = leaveDays * rate;
       total += leavePay;
       $('#leaveQty').textContent = days(leaveDays) + ' d';
@@ -451,6 +476,7 @@
     if (p.grantOn) {
       var pct = num(p.grantPct);
       var grantPay = stats.gross * pct / 100 + num(p.grantFixed) * stats.months;
+      // grant keeps whole months for the fixed part, earnings for the rest
       total += grantPay;
       $('#grantQty').textContent = pct ? days(pct) + '%' : '—';
       $('#grantRate').textContent = num(p.grantFixed) > 0
@@ -460,12 +486,23 @@
 
     $('#benefitTotal').textContent = cash(total);
     $('#benefitWindowLbl').textContent = stats.from + '  →  ' + stats.to +
-      '   ·   ' + stats.months + ' month' + (stats.months === 1 ? '' : 's') + ' worked';
-    $('#benefitNote').textContent = num(p.rate) > 0
-      ? 'Counted over ' + stats.label + ': ' + stats.days + ' day' + (stats.days === 1 ? '' : 's') +
-        ' worked, ' + cur + ' ' + money(stats.gross) + ' earned. A day is paid at ' +
-        standardDay() + ' hours.'
-      : 'Add a rate per hour to see these amounts.';
+      '   ·   ' + days(stats.exactMonths) + ' month' + (stats.exactMonths === 1 ? '' : 's') + ' of service';
+
+    if (num(p.rate) <= 0) {
+      $('#benefitNote').textContent = 'Add a rate per hour to see these amounts.';
+      return;
+    }
+
+    var note = 'Leave and severance count the ' + days(stats.exactMonths) +
+      ' months between these dates, whether or not the hours were captured here. ' +
+      'A day is paid at ' + standardDay() + ' hours, ' + cur + ' ' + money(rate) + '.';
+    if (p.grantOn) {
+      note += ' The grant uses what this sheet recorded in the window: ' +
+        stats.recordedMonths + ' month' + (stats.recordedMonths === 1 ? '' : 's') +
+        ' with hours, ' + stats.days + ' day' + (stats.days === 1 ? '' : 's') +
+        ', ' + cur + ' ' + money(stats.gross) + ' earned.';
+    }
+    $('#benefitNote').textContent = note;
   }
 
   function renderPay(totals) {
@@ -793,12 +830,13 @@
       var dr = dailyRate();
       lines.push('');
       lines.push(['Paid yearly or on leaving', csv(st.from + ' to ' + st.to),
-                  csv(st.months + ' months worked'), csv(money(st.gross) + ' earned')].join(','));
+                  csv(days(st.exactMonths) + ' months of service'),
+                  csv(money(st.gross) + ' earned on this sheet')].join(','));
       var due = 0;
       if (p.leaveOn) {
-        var lv = st.months * num(p.leaveDays) * dr;
+        var lv = st.exactMonths * num(p.leaveDays) * dr;
         due += lv;
-        lines.push(['Leave pay', csv(days(st.months * num(p.leaveDays)) + ' days'), plain(lv)].join(','));
+        lines.push(['Leave pay', csv(days(st.exactMonths * num(p.leaveDays)) + ' days'), plain(lv)].join(','));
       }
       if (p.sevOn) {
         var sd = Math.min(st.months, 60) * num(p.sevDays1) + Math.max(0, st.months - 60) * num(p.sevDays2);
