@@ -71,6 +71,9 @@ Open `index.html` in a browser. No build step, no server, no account.
   a day off (the row is ruled through, just like on paper).
 * **Print / PDF** gives you a clean sheet with the controls stripped out, and
   **Export CSV** hands the same figures to a spreadsheet.
+* **Share TAIMER** opens the phone's own share sheet with the link, and
+  **Get the poster** downloads a QR-code poster to print or pass on. Both work
+  with no connection, since the poster is cached with the app.
 
 ## Look
 
@@ -139,6 +142,6 @@ visit, since the cached copy is served first and refreshed behind it.
 | `icon-*.png` | Home-screen icons (192, 512 and a maskable 512) |
 | `logo.png` | The wordmark, white on transparency, used in the header |
 | `social-card.png` | The preview image shown when the link is shared |
-| `share-card.png` | A poster with the QR code, for passing the app around |
+| `share-card.png` | The poster with the QR code, offered as a download in the app |
 | `robots.txt`, `sitemap.xml` | What search engines read |
 | `404.html` | The not-found page, in the same colours |
