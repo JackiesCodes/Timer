@@ -194,6 +194,55 @@ input, button, select { font-family: var(--sans); }
   color: var(--ink-soft);
 }
 
+/* option groups in pay settings */
+
+.opt-group {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+.opt-group h3 {
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.check.opt { margin-top: 8px; }
+.check.opt span { font-weight: 700; color: var(--navy); }
+
+.opt-fields {
+  margin: 8px 0 4px 24px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--blue);
+  background: var(--paper-edge);
+  border-radius: 0 3px 3px 0;
+}
+.opt-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.win-field { margin-top: 14px; }
+.win-field select {
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 7px 9px;
+  width: 100%;
+}
+.win-field select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(23, 131, 193, .18);
+}
+#benefitCustom { margin-top: 10px; }
+
 /* ── the sheet ───────────────────────────────────────────────────────── */
 
 .sheet-outer { filter: drop-shadow(0 2px 8px rgba(10, 60, 110, .14)); }
@@ -598,6 +647,14 @@ table.pay th {
 table.pay td.num { text-align: right; width: 74px; font-weight: 700; }
 table.pay td.rate { text-align: right; width: 100px; color: var(--ink-soft); }
 table.pay td.money { width: 140px; font-size: 14px; font-weight: 700; text-align: right; }
+table.pay tr.deduct th,
+table.pay tr.deduct td {
+  background: rgba(51, 51, 51, .05);
+  color: var(--charcoal);
+  font-weight: 700;
+}
+table.pay tr.deduct td.money::before { content: "− "; }
+
 table.pay tr.total th,
 table.pay tr.total td {
   background: var(--navy);
@@ -607,6 +664,26 @@ table.pay tr.total td {
   font-size: 16px;
   letter-spacing: .6px;
 }
+.pay-block.benefits { margin-top: 14px; border-top: 3px solid var(--blue); }
+table.pay th.benefit-head {
+  background: var(--paper-edge);
+  color: var(--navy);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  padding: 10px;
+}
+table.pay th.benefit-head small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: .2px;
+  text-transform: none;
+  color: var(--ink-soft);
+  margin-top: 3px;
+}
+table.pay tr.net th,
+table.pay tr.net td { background: var(--blue); }
+
 .pay-note {
   margin: 0;
   padding: 9px 10px;

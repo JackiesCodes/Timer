@@ -10,6 +10,9 @@ Open `index.html` in a browser. No build step, no server, no account.
 
 ## What it does
 
+* **Sheet header** — name, employee ID, nationality, work destination and the
+  hourly wage standard. The pay period lives above the sheet and the currency
+  in *Pay settings*, so neither is asked for twice.
 * **Same layout as the paper sheet** — Week · Date · Work hour record
   (Morning / Afternoon) · Normal hours · Overtime type 1 & type 2 ·
   Employee confirm · Supervisor check, with the `Summary: A · B · C` and
@@ -34,6 +37,22 @@ Open `index.html` in a browser. No build step, no server, no account.
 * **Overtime stays editable.** The type 1 / type 2 boxes show the calculated
   figure in grey; type your own number to override a day, clear the box to go
   back to the calculated one.
+* **Deductions and benefits**, each switched on in *Pay settings* and worked
+  out automatically once ticked:
+  * **Tax** — a rate and a tax-free amount per period, giving a *Less tax* and
+    *Net pay* line under the period's total.
+  * **Leave days**, **severance pay** and **grant / gratuity** — the things a
+    company pays at the end of the year or when someone leaves. They appear in
+    their own block, under a **Counted over** setting: this pay period, year to
+    date, the last 12 months, every month recorded, or a range you choose.
+    Only months with hours actually written on a sheet are counted, and the
+    block says how many those are.
+  * Leave accrues per month at a rate you set (1.25 days a month is Botswana's
+    15-day minimum). Severance takes days per month for the first five years
+    and a second, higher rate after that (one day, then two, matching the
+    statutory pattern). The grant is a percentage of what was earned in the
+    window, plus an optional fixed amount per month. A day is paid at the
+    standard day's hours times the hourly rate.
 * **Pay.** Enter a rate per hour and the sheet shows
   `A × rate`, `B × rate × 1.5`, `C × rate × 2` and the total. The multipliers
   and the currency are yours to set.

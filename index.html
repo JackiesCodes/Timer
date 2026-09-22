@@ -99,6 +99,90 @@
         <input type="checkbox" id="autoHolidays" />
         <span>Mark Botswana public holidays automatically</span>
       </label>
+
+      <div class="opt-group">
+        <h3>Paid every period</h3>
+
+        <label class="check opt"><input type="checkbox" id="taxOn" /><span>Tax deduction</span></label>
+        <div class="opt-fields" id="taxFields" hidden>
+          <div class="grid">
+            <label class="field">
+              <span>Tax rate %</span>
+              <input type="text" inputmode="decimal" id="taxRate" placeholder="0" />
+            </label>
+            <label class="field">
+              <span>Tax-free per period</span>
+              <input type="text" inputmode="decimal" id="taxFree" placeholder="0.00" />
+            </label>
+          </div>
+          <p class="opt-note">Earnings above the tax-free amount are taxed at this rate. Set it to match your payslip — it is a flat estimate, not a PAYE band table.</p>
+        </div>
+      </div>
+
+      <div class="opt-group">
+        <h3>Paid yearly or on leaving</h3>
+
+        <label class="check opt"><input type="checkbox" id="leaveOn" /><span>Leave days</span></label>
+        <div class="opt-fields" id="leaveFields" hidden>
+          <div class="grid">
+            <label class="field">
+              <span>Days earned per month</span>
+              <input type="text" inputmode="decimal" id="leaveDays" placeholder="1.25" />
+            </label>
+          </div>
+          <p class="opt-note">Botswana's minimum is 15 working days a year — 1.25 a month.</p>
+        </div>
+
+        <label class="check opt"><input type="checkbox" id="sevOn" /><span>Severance pay</span></label>
+        <div class="opt-fields" id="sevFields" hidden>
+          <div class="grid">
+            <label class="field">
+              <span>Days per month · first 5 years</span>
+              <input type="text" inputmode="decimal" id="sevDays1" placeholder="1" />
+            </label>
+            <label class="field">
+              <span>Days per month · after 5 years</span>
+              <input type="text" inputmode="decimal" id="sevDays2" placeholder="2" />
+            </label>
+          </div>
+          <p class="opt-note">Botswana's severance benefit is one day's basic pay for each month of the first 60, and two days a month after that.</p>
+        </div>
+
+        <label class="check opt"><input type="checkbox" id="grantOn" /><span>Grant / gratuity</span></label>
+        <div class="opt-fields" id="grantFields" hidden>
+          <div class="grid">
+            <label class="field">
+              <span>% of earnings</span>
+              <input type="text" inputmode="decimal" id="grantPct" placeholder="0" />
+            </label>
+            <label class="field">
+              <span>Fixed amount per month</span>
+              <input type="text" inputmode="decimal" id="grantFixed" placeholder="0.00" />
+            </label>
+          </div>
+        </div>
+
+        <label class="field win-field">
+          <span>Counted over</span>
+          <select id="benefitWindow">
+            <option value="period">This pay period</option>
+            <option value="ytd">Year to date</option>
+            <option value="12m">Last 12 months</option>
+            <option value="all">Every month recorded</option>
+            <option value="custom">Custom range</option>
+          </select>
+        </label>
+        <div class="grid" id="benefitCustom" hidden>
+          <label class="field">
+            <span>From</span>
+            <input type="date" id="benefitFrom" />
+          </label>
+          <label class="field">
+            <span>To</span>
+            <input type="date" id="benefitTo" />
+          </label>
+        </div>
+      </div>
     </details>
 
     <div class="actions">
@@ -125,11 +209,10 @@
         </div>
         <div class="id-row">
           <label class="id-field"><span>Nationality</span><input type="text" id="empNationality" placeholder="—" /></label>
-          <label class="id-field short"><span>Start date</span><input type="date" id="empStart" /></label>
+          <label class="id-field short"><span>Work destination</span><input type="text" id="workDest" placeholder="—" /></label>
         </div>
         <div class="id-row">
           <label class="id-field"><span>Wage standard (per hour)</span><input type="text" inputmode="decimal" id="rateMirror" placeholder="0.00" /></label>
-          <label class="id-field short"><span>Currency</span><input type="text" id="currencyMirror" maxlength="6" placeholder="BWP" /></label>
         </div>
       </div>
 
@@ -239,9 +322,56 @@
               <th colspan="3">Total pay</th>
               <td class="num money" id="payTotal">—</td>
             </tr>
+            <tr class="deduct" id="taxRow" hidden>
+              <th colspan="2">Less tax</th>
+              <td class="rate" id="taxRateLbl">—</td>
+              <td class="num money" id="payTax">—</td>
+            </tr>
+            <tr class="total net" id="netRow" hidden>
+              <th colspan="3">Net pay</th>
+              <td class="num money" id="payNet">—</td>
+            </tr>
           </tbody>
         </table>
         <p class="pay-note" id="payNote">Add a rate per hour to see earnings.</p>
+      </div>
+
+      <div class="pay-block benefits" id="benefitBlock" hidden>
+        <table class="pay">
+          <thead>
+            <tr>
+              <th colspan="4" class="benefit-head">
+                Paid yearly or on leaving
+                <small id="benefitWindowLbl">—</small>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="leaveRow" hidden>
+              <th>Leave pay</th>
+              <td class="num" id="leaveQty">0.0</td>
+              <td class="rate" id="leaveRate">—</td>
+              <td class="num money" id="leavePay">—</td>
+            </tr>
+            <tr id="sevRow" hidden>
+              <th>Severance pay</th>
+              <td class="num" id="sevQty">0.0</td>
+              <td class="rate" id="sevRate">—</td>
+              <td class="num money" id="sevPay">—</td>
+            </tr>
+            <tr id="grantRow" hidden>
+              <th>Grant / gratuity</th>
+              <td class="num" id="grantQty">—</td>
+              <td class="rate" id="grantRate">—</td>
+              <td class="num money" id="grantPay">—</td>
+            </tr>
+            <tr class="total">
+              <th colspan="3">Total due on leaving</th>
+              <td class="num money" id="benefitTotal">—</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="pay-note" id="benefitNote">—</p>
       </div>
 
       <div class="sheet-foot">taimer.cards</div>

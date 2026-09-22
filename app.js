@@ -40,6 +40,15 @@
 
   function money(n) { return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
+  // Same amount without the thousands separators, so a CSV cell holds a
+  // number rather than splitting across two columns.
+  function plain(n) { return n.toFixed(2); }
+
+  // Days read badly at one decimal: 1.25 is not 1.3 of a day.
+  function days(n) {
+    return (Math.round(n * 100) / 100).toFixed(2).replace(/\.?0+$/, '');
+  }
+
   function sheetDate(d) { return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear(); }
 
   /* ── public holidays (Botswana) ───────────────────────────────────── */
@@ -103,10 +112,18 @@
     var last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     return {
       profile: {
-        name: '', employeeId: '', nationality: '', startDate: '',
+        name: '', employeeId: '', nationality: '', workDest: '',
         currency: 'BWP', rate: '', standardDay: '9', ot1Mult: '1.5', ot2Mult: '2',
         weekendIsOt2: true, autoHolidays: true,
-        fillAm: '5', fillPm: '4', fillMode: '', fillDays: [1, 2, 3, 4, 5], fillKeep: false
+        fillAm: '5', fillPm: '4', fillMode: '', fillDays: [1, 2, 3, 4, 5], fillKeep: false,
+
+        // Paid every period
+        taxOn: false, taxRate: '', taxFree: '',
+        // Paid yearly or on leaving, counted over benefitWindow
+        leaveOn: false, leaveDays: '1.25',
+        sevOn: false, sevDays1: '1', sevDays2: '2',
+        grantOn: false, grantPct: '', grantFixed: '',
+        benefitWindow: 'ytd', benefitFrom: '', benefitTo: ''
       },
       period: { start: iso(first), end: iso(last) },
       entries: {}
@@ -318,6 +335,7 @@
     $('#totAll').textContent = hrs(totals.a + totals.b + totals.c);
 
     renderPay(totals);
+    renderBenefits();
     syncQuickFill();
     save();
   }
@@ -328,6 +346,126 @@
     input.classList.toggle('auto', !manual);
     if (manual || input === document.activeElement) return;
     input.value = autoValue > 0 ? hrs(autoValue) : '';
+  }
+
+  /* ── deductions & end-of-term benefits ────────────────────────────── */
+
+  // What one standard working day is worth at the current rate.
+  function dailyRate() { return standardDay() * num(state.profile.rate); }
+
+  function payFor(day) {
+    var p = state.profile;
+    var rate = num(p.rate);
+    return day.normal * rate +
+           day.ot1 * rate * (num(p.ot1Mult) || 1.5) +
+           day.ot2 * rate * (num(p.ot2Mult) || 2);
+  }
+
+  function addMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, d.getDate()); }
+
+  // The stretch of time the yearly / on-leaving figures are counted over.
+  function benefitRange() {
+    var p = state.profile;
+    var end = state.period.end;
+    var dates;
+
+    switch (p.benefitWindow) {
+      case 'period':
+        return { from: state.period.start, to: end, label: 'this pay period' };
+      case '12m':
+        return { from: iso(addDays(addMonths(fromISO(end), -12), 1)), to: end, label: 'the last 12 months' };
+      case 'all':
+        dates = Object.keys(state.entries).sort();
+        if (!dates.length) return { from: state.period.start, to: end, label: 'every month recorded' };
+        return { from: dates[0], to: dates[dates.length - 1], label: 'every month recorded' };
+      case 'custom':
+        return {
+          from: p.benefitFrom || state.period.start,
+          to: p.benefitTo || end,
+          label: 'the range you set'
+        };
+      default:
+        return { from: end.slice(0, 4) + '-01-01', to: end, label: 'the year to date' };
+    }
+  }
+
+  // Only days actually written on a sheet count, so the figures follow the
+  // hours rather than a calendar the employee may not have worked.
+  function benefitStats() {
+    var range = benefitRange();
+    var months = {};
+    var gross = 0, days = 0;
+
+    Object.keys(state.entries).forEach(function (dISO) {
+      if (dISO < range.from || dISO > range.to) return;
+      var day = calcDay(dISO);
+      if (day.off || day.worked <= 0) return;
+      gross += payFor(day);
+      days += 1;
+      months[dISO.slice(0, 7)] = true;
+    });
+
+    range.gross = gross;
+    range.days = days;
+    range.months = Object.keys(months).length;
+    return range;
+  }
+
+  function renderBenefits() {
+    var p = state.profile;
+    var on = p.leaveOn || p.sevOn || p.grantOn;
+    $('#benefitBlock').hidden = !on;
+    if (!on) return;
+
+    var cur = (p.currency || '').trim();
+    var stats = benefitStats();
+    var rate = dailyRate();
+    var total = 0;
+
+    function show(rowId, visible) { $(rowId).hidden = !visible; }
+    function cash(n) { return num(p.rate) > 0 ? cur + ' ' + money(n) : '—'; }
+
+    show('#leaveRow', p.leaveOn);
+    if (p.leaveOn) {
+      var leaveDays = stats.months * num(p.leaveDays);
+      var leavePay = leaveDays * rate;
+      total += leavePay;
+      $('#leaveQty').textContent = days(leaveDays) + ' d';
+      $('#leaveRate').textContent = '× ' + money(rate) + '/day';
+      $('#leavePay').textContent = cash(leavePay);
+    }
+
+    show('#sevRow', p.sevOn);
+    if (p.sevOn) {
+      var first = Math.min(stats.months, 60);
+      var later = Math.max(0, stats.months - 60);
+      var sevDays = first * num(p.sevDays1) + later * num(p.sevDays2);
+      var sevPay = sevDays * rate;
+      total += sevPay;
+      $('#sevQty').textContent = days(sevDays) + ' d';
+      $('#sevRate').textContent = '× ' + money(rate) + '/day';
+      $('#sevPay').textContent = cash(sevPay);
+    }
+
+    show('#grantRow', p.grantOn);
+    if (p.grantOn) {
+      var pct = num(p.grantPct);
+      var grantPay = stats.gross * pct / 100 + num(p.grantFixed) * stats.months;
+      total += grantPay;
+      $('#grantQty').textContent = pct ? days(pct) + '%' : '—';
+      $('#grantRate').textContent = num(p.grantFixed) > 0
+        ? '+ ' + money(num(p.grantFixed)) + '/month' : 'of earnings';
+      $('#grantPay').textContent = cash(grantPay);
+    }
+
+    $('#benefitTotal').textContent = cash(total);
+    $('#benefitWindowLbl').textContent = stats.from + '  →  ' + stats.to +
+      '   ·   ' + stats.months + ' month' + (stats.months === 1 ? '' : 's') + ' worked';
+    $('#benefitNote').textContent = num(p.rate) > 0
+      ? 'Counted over ' + stats.label + ': ' + stats.days + ' day' + (stats.days === 1 ? '' : 's') +
+        ' worked, ' + cur + ' ' + money(stats.gross) + ' earned. A day is paid at ' +
+        standardDay() + ' hours.'
+      : 'Add a rate per hour to see these amounts.';
   }
 
   function renderPay(totals) {
@@ -352,15 +490,36 @@
       $('#payC').textContent = '—';
       $('#payTotal').textContent = '—';
       $('#payNote').textContent = 'Add a rate per hour to see earnings.';
+      $('#payTax').textContent = '—';
+      $('#payNet').textContent = '—';
+      $('#taxRow').hidden = !p.taxOn;
+      $('#netRow').hidden = !p.taxOn;
+      $('#taxRateLbl').textContent = days(num(p.taxRate)) + '%';
       return;
     }
 
     var a = totals.a * rate, b = totals.b * rate * m1, c = totals.c * rate * m2;
+    var gross = a + b + c;
     $('#payA').textContent = cur + ' ' + money(a);
     $('#payB').textContent = cur + ' ' + money(b);
     $('#payC').textContent = cur + ' ' + money(c);
-    $('#payTotal').textContent = cur + ' ' + money(a + b + c);
+    $('#payTotal').textContent = cur + ' ' + money(gross);
     $('#payNote').textContent = 'Type 1 pays ' + m1 + '× the hourly rate; type 2 pays ' + m2 + '×.';
+
+    renderTax(gross, cur);
+  }
+
+  function renderTax(gross, cur) {
+    var p = state.profile;
+    $('#taxRow').hidden = !p.taxOn;
+    $('#netRow').hidden = !p.taxOn;
+    if (!p.taxOn) return;
+
+    var taxable = Math.max(0, gross - num(p.taxFree));
+    var tax = taxable * num(p.taxRate) / 100;
+    $('#taxRateLbl').textContent = days(num(p.taxRate)) + '% of ' + money(taxable);
+    $('#payTax').textContent = cur + ' ' + money(tax);
+    $('#payNet').textContent = cur + ' ' + money(gross - tax);
   }
 
   var MAX_DAYS = 367;
@@ -379,9 +538,13 @@
 
   var FIELD_MAP = [
     ['#empName', 'name'], ['#empId', 'employeeId'], ['#empNationality', 'nationality'],
-    ['#empStart', 'startDate'], ['#rate', 'rate'], ['#rateMirror', 'rate'],
-    ['#currency', 'currency'], ['#currencyMirror', 'currency'],
-    ['#standardDay', 'standardDay'], ['#ot1Mult', 'ot1Mult'], ['#ot2Mult', 'ot2Mult']
+    ['#workDest', 'workDest'], ['#rate', 'rate'], ['#rateMirror', 'rate'],
+    ['#currency', 'currency'],
+    ['#standardDay', 'standardDay'], ['#ot1Mult', 'ot1Mult'], ['#ot2Mult', 'ot2Mult'],
+    ['#taxRate', 'taxRate'], ['#taxFree', 'taxFree'], ['#leaveDays', 'leaveDays'],
+    ['#sevDays1', 'sevDays1'], ['#sevDays2', 'sevDays2'],
+    ['#grantPct', 'grantPct'], ['#grantFixed', 'grantFixed'],
+    ['#benefitFrom', 'benefitFrom'], ['#benefitTo', 'benefitTo']
   ];
 
   function syncProfileInputs() {
@@ -393,9 +556,25 @@
     $('#autoHolidays').checked = !!state.profile.autoHolidays;
     $('#periodStart').value = state.period.start;
     $('#periodEnd').value = state.period.end;
+
+    OPTIONS.forEach(function (opt) {
+      $(opt[0]).checked = !!state.profile[opt[1]];
+      $(opt[2]).hidden = !state.profile[opt[1]];
+    });
+    $('#benefitWindow').value = state.profile.benefitWindow;
+    $('#benefitCustom').hidden = state.profile.benefitWindow !== 'custom';
   }
 
-  var NUMERIC_FIELDS = ['rate', 'standardDay', 'ot1Mult', 'ot2Mult'];
+  var NUMERIC_FIELDS = ['rate', 'standardDay', 'ot1Mult', 'ot2Mult', 'taxRate', 'taxFree',
+    'leaveDays', 'sevDays1', 'sevDays2', 'grantPct', 'grantFixed'];
+
+  // Each switch in pay settings, with the fields it reveals.
+  var OPTIONS = [
+    ['#taxOn', 'taxOn', '#taxFields'],
+    ['#leaveOn', 'leaveOn', '#leaveFields'],
+    ['#sevOn', 'sevOn', '#sevFields'],
+    ['#grantOn', 'grantOn', '#grantFields']
+  ];
 
   FIELD_MAP.forEach(function (pair) {
     var el = $(pair[0]);
@@ -410,6 +589,20 @@
       syncProfileInputs();
       refresh();
     });
+  });
+
+  OPTIONS.forEach(function (opt) {
+    $(opt[0]).addEventListener('change', function () {
+      state.profile[opt[1]] = this.checked;
+      $(opt[2]).hidden = !this.checked;
+      refresh();
+    });
+  });
+
+  $('#benefitWindow').addEventListener('change', function () {
+    state.profile.benefitWindow = this.value;
+    $('#benefitCustom').hidden = this.value !== 'custom';
+    refresh();
   });
 
   $('#weekendIsOt2').addEventListener('change', function () {
@@ -559,9 +752,9 @@
     lines.push(['Name', csv(p.name)].join(','));
     lines.push(['Employee ID', csv(p.employeeId)].join(','));
     lines.push(['Nationality', csv(p.nationality)].join(','));
-    lines.push(['Start date', csv(p.startDate)].join(','));
+    lines.push(['Work destination', csv(p.workDest)].join(','));
     lines.push(['Period', csv(state.period.start + ' to ' + state.period.end)].join(','));
-    lines.push(['Rate per hour', csv((p.currency || '') + ' ' + money(rate))].join(','));
+    lines.push(['Rate per hour', csv((p.currency || '') + ' ' + plain(rate))].join(','));
     lines.push('');
     lines.push('Week,Date,Morning,Afternoon,Normal (A),Type 1 (B),Type 2 (C),Day total,Note');
 
@@ -582,9 +775,43 @@
 
     lines.push('');
     lines.push(['Totals', '', '', '', hrs(t.a), hrs(t.b), hrs(t.c), hrs(t.a + t.b + t.c), ''].join(','));
+    var gross = t.a * rate + t.b * rate * m1 + t.c * rate * m2;
     lines.push(['Pay', '', '', '',
-      money(t.a * rate), money(t.b * rate * m1), money(t.c * rate * m2),
-      money(t.a * rate + t.b * rate * m1 + t.c * rate * m2), csv(p.currency || '')].join(','));
+      plain(t.a * rate), plain(t.b * rate * m1), plain(t.c * rate * m2),
+      plain(gross), csv(p.currency || '')].join(','));
+
+    if (p.taxOn) {
+      var taxable = Math.max(0, gross - num(p.taxFree));
+      var tax = taxable * num(p.taxRate) / 100;
+      lines.push('');
+      lines.push(['Tax', csv(hrs(num(p.taxRate)) + '% above ' + money(num(p.taxFree))), plain(tax)].join(','));
+      lines.push(['Net pay', '', plain(gross - tax)].join(','));
+    }
+
+    if (p.leaveOn || p.sevOn || p.grantOn) {
+      var st = benefitStats();
+      var dr = dailyRate();
+      lines.push('');
+      lines.push(['Paid yearly or on leaving', csv(st.from + ' to ' + st.to),
+                  csv(st.months + ' months worked'), csv(money(st.gross) + ' earned')].join(','));
+      var due = 0;
+      if (p.leaveOn) {
+        var lv = st.months * num(p.leaveDays) * dr;
+        due += lv;
+        lines.push(['Leave pay', csv(days(st.months * num(p.leaveDays)) + ' days'), plain(lv)].join(','));
+      }
+      if (p.sevOn) {
+        var sd = Math.min(st.months, 60) * num(p.sevDays1) + Math.max(0, st.months - 60) * num(p.sevDays2);
+        due += sd * dr;
+        lines.push(['Severance pay', csv(days(sd) + ' days'), plain(sd * dr)].join(','));
+      }
+      if (p.grantOn) {
+        var gr = st.gross * num(p.grantPct) / 100 + num(p.grantFixed) * st.months;
+        due += gr;
+        lines.push(['Grant / gratuity', csv(hrs(num(p.grantPct)) + '% + ' + money(num(p.grantFixed)) + '/month'), plain(gr)].join(','));
+      }
+      lines.push(['Total due on leaving', '', plain(due)].join(','));
+    }
 
     download('taimer-' + state.period.start + '-to-' + state.period.end + '.csv',
              lines.join('\n'), 'text/csv;charset=utf-8');
