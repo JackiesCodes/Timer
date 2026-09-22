@@ -5,6 +5,8 @@
   'use strict';
 
   var STORE_KEY = 'taimer.v1';
+  var SCHEMA = 1;          // bumped when saved data needs migrating
+  var VERSION = '1.0';     // shown in the footer, quoted in support
   var DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   /* ── helpers ──────────────────────────────────────────────────────── */
@@ -104,6 +106,42 @@
     return holidaysFor(+dateISO.slice(0, 4))[dateISO] || '';
   }
 
+  /* ── plans ────────────────────────────────────────────────────────── */
+
+  // Every feature is open today. The point of this table is that a limit
+  // becomes a number here rather than a change scattered through the code.
+  var PLANS = {
+    free: {
+      name: 'Free',
+      employees: Infinity,
+      historyMonths: Infinity,
+      features: { print: true, csv: true, paye: true, benefits: true, share: true }
+    },
+    pro: {
+      name: 'Pro',
+      employees: Infinity,
+      historyMonths: Infinity,
+      features: { print: true, csv: true, paye: true, benefits: true, share: true }
+    }
+  };
+
+  function plan() { return PLANS[state.account && state.account.plan] || PLANS.free; }
+
+  // Ask before doing anything that might one day be paid for.
+  function can(feature) { return plan().features[feature] !== false; }
+  function limitOf(name) { var v = plan()[name]; return v === undefined ? Infinity : v; }
+
+  function newInstallId() {
+    try {
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      var b = new Uint8Array(16);
+      crypto.getRandomValues(b);
+      return Array.prototype.map.call(b, function (n) { return ('0' + n.toString(16)).slice(-2); }).join('');
+    } catch (err) {
+      return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
   /* ── state ────────────────────────────────────────────────────────── */
 
   function defaultState() {
@@ -127,7 +165,10 @@
         benefitWindow: 'ytd', benefitFrom: '', benefitTo: ''
       },
       period: { start: iso(first), end: iso(last) },
-      entries: {}
+      entries: {},
+      account: { plan: 'free', licenceKey: '', installId: newInstallId(), since: iso(today) },
+      usage: { prints: 0, exports: 0, shares: 0, posters: 0 },
+      schema: SCHEMA
     };
   }
 
@@ -147,7 +188,10 @@
       return {
         profile: Object.assign(base.profile, saved.profile || {}),
         period: Object.assign(base.period, saved.period || {}),
-        entries: saved.entries || {}
+        entries: saved.entries || {},
+        account: Object.assign(base.account, saved.account || {}),
+        usage: Object.assign(base.usage, saved.usage || {}),
+        schema: saved.schema || SCHEMA
       };
     } catch (err) {
       return base;
@@ -337,6 +381,7 @@
 
     renderPay(totals);
     renderBenefits();
+    renderAccount();
     if (!(opts && opts.keepBands)) renderBandTable();
     syncQuickFill();
     save();
@@ -348,6 +393,35 @@
     input.classList.toggle('auto', !manual);
     if (manual || input === document.activeElement) return;
     input.value = autoValue > 0 ? hrs(autoValue) : '';
+  }
+
+  /* ── how this copy is being used ──────────────────────────────────── */
+
+  function countUse(what) {
+    if (!state.usage) state.usage = { prints: 0, exports: 0, shares: 0, posters: 0 };
+    state.usage[what] = (state.usage[what] || 0) + 1;
+    save();
+    renderAccount();
+  }
+
+  function recorded() {
+    var months = {}, days = 0;
+    Object.keys(state.entries).forEach(function (d) {
+      var e = state.entries[d];
+      if (num(e.am) + num(e.pm) > 0) { days += 1; months[d.slice(0, 7)] = true; }
+    });
+    return { months: Object.keys(months).length, days: days };
+  }
+
+  function renderAccount() {
+    var a = state.account, u = state.usage || {}, r = recorded();
+    $('#planName').textContent = plan().name;
+    $('#installId').textContent = (a.installId || '').slice(0, 8);
+    $('#usageLine').textContent =
+      r.months + ' month' + (r.months === 1 ? '' : 's') + ' recorded · ' +
+      r.days + ' day' + (r.days === 1 ? '' : 's') + ' of hours · ' +
+      (u.prints || 0) + ' printed · ' + (u.exports || 0) + ' exported';
+    if ($('#licenceKey') !== document.activeElement) $('#licenceKey').value = a.licenceKey || '';
   }
 
   /* ── PAYE bands ───────────────────────────────────────────────────── */
@@ -944,10 +1018,12 @@
 
   /* ── actions ──────────────────────────────────────────────────────── */
 
-  $('#printBtn').addEventListener('click', function () { window.print(); });
+  $('#printBtn').addEventListener('click', function () { countUse('prints'); window.print(); });
 
   // Hand the link to whatever the phone shares with — WhatsApp, messages,
   // mail — and fall back to the clipboard on a desktop that has no sheet.
+  $('#posterBtn').addEventListener('click', function () { countUse('posters'); });
+
   $('#shareBtn').addEventListener('click', function () {
     var btn = this;
     var share = {
@@ -962,6 +1038,7 @@
       setTimeout(function () { btn.textContent = was; }, 2200);
     }
 
+    countUse('shares');
     if (navigator.share) {
       navigator.share(share).catch(function () { /* the person closed the sheet */ });
       return;
@@ -982,6 +1059,7 @@
   });
 
   $('#csvBtn').addEventListener('click', function () {
+    countUse('exports');
     var p = state.profile;
     var rate = num(p.rate), m1 = num(p.ot1Mult) || 1.5, m2 = num(p.ot2Mult) || 2;
     var lines = [];
@@ -1266,6 +1344,18 @@
     });
   }
 
+  $('#licenceKey').addEventListener('input', function () {
+    state.account.licenceKey = this.value.trim();
+    save();
+  });
+
+  $('#licenceApply').addEventListener('click', function () {
+    var note = $('#licenceNote');
+    note.textContent = state.account.licenceKey
+      ? 'Keys are not in use yet — every feature is already yours. This one is kept for when that changes.'
+      : 'Every feature is free at the moment, so there is no key to enter.';
+  });
+
   /* ── offline ──────────────────────────────────────────────────────── */
 
   // Registering the worker keeps the sheet openable with no connection at
@@ -1289,6 +1379,7 @@
   /* ── go ───────────────────────────────────────────────────────────── */
 
   syncProfileInputs();
+  renderAccount();
   bindQuickFill();
   renderHeader();
   renderRows();

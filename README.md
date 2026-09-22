@@ -123,6 +123,30 @@ When deploying a change, bump `CACHE` in `sw.js` (`taimer-v1` → `taimer-v2`) s
 every device picks the new files up at once; otherwise they arrive on the second
 visit, since the cached copy is served first and refreshed behind it.
 
+## Groundwork for charging later
+
+Nothing is gated — every feature is free and the app still works with no
+account and no connection. What exists is the scaffolding, so that charging for
+something later is a change of configuration rather than surgery:
+
+* `PLANS` in `app.js` holds one entry per plan, with its limits and features.
+  Today both entries allow everything. `can('feature')` and `limitOf('employees')`
+  are the two questions the rest of the code should ask.
+* `state.account` carries the plan, an anonymous random identifier for the
+  installation, the date it started and a licence key if one is ever entered.
+  The key is stored and otherwise ignored.
+* `state.usage` counts prints, exports, shares and posters, and the panel in pay
+  settings reports them beside the months and days recorded — the numbers you
+  need to decide where a free tier should end.
+* `state.schema` is stamped on saved data so a future version can migrate it.
+* `terms.html` and `privacy.html` say plainly what the app does with what you
+  type, which is nothing: every payment processor asks for both.
+
+Worth knowing before building on it: this is a static app, so anything enforced
+only in the browser can be bypassed by whoever holds the phone. Features that
+need a server of yours — backup, sync between phones, a supervisor seeing a
+crew's sheets — are the ones that enforce themselves.
+
 ## Notes
 
 * Everything is stored in the browser's local storage on that device only —
