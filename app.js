@@ -466,21 +466,29 @@
 
     switch (p.benefitWindow) {
       case 'period':
-        return { from: state.period.start, to: end, label: 'this pay period' };
+        return { from: state.period.start, to: end, label: 'this pay period', name: 'Same as pay period' };
       case '12m':
-        return { from: iso(addDays(addMonths(fromISO(end), -12), 1)), to: end, label: 'the last 12 months' };
+        return { from: iso(addDays(addMonths(fromISO(end), -12), 1)), to: end,
+                 label: 'the last 12 months', name: 'Last 12 months' };
       case 'all':
         dates = Object.keys(state.entries).sort();
-        if (!dates.length) return { from: state.period.start, to: end, label: 'every month recorded' };
-        return { from: dates[0], to: dates[dates.length - 1], label: 'every month recorded' };
+        if (!dates.length) return { from: state.period.start, to: end,
+                                    label: 'every month recorded', name: 'First to last day on record' };
+        return { from: dates[0], to: dates[dates.length - 1],
+                 label: 'every month recorded', name: 'First to last day on record' };
       case 'custom':
+        // Missing dates used to fall back to the pay period without saying
+        // so, which read as the setting being ignored.
         return {
           from: p.benefitFrom || state.period.start,
           to: p.benefitTo || end,
-          label: 'the range you set'
+          label: 'the dates of service',
+          name: 'Dates of service',
+          incomplete: !p.benefitFrom || !p.benefitTo
         };
       default:
-        return { from: end.slice(0, 4) + '-01-01', to: end, label: 'the year to date' };
+        return { from: end.slice(0, 4) + '-01-01', to: end,
+                 label: 'the year to date', name: 'Year to date' };
     }
   }
 
@@ -559,8 +567,10 @@
     }
 
     $('#benefitTotal').textContent = cash(total);
-    $('#benefitWindowLbl').textContent = stats.from + '  →  ' + stats.to +
-      '   ·   ' + days(stats.exactMonths) + ' month' + (stats.exactMonths === 1 ? '' : 's') + ' of service';
+    $('#benefitWindowLbl').textContent = stats.name + '   ·   ' +
+      stats.from + '  →  ' + stats.to + '   ·   ' +
+      days(stats.exactMonths) + ' month' + (stats.exactMonths === 1 ? '' : 's') + ' of service' +
+      (stats.incomplete ? '   ·   dates of service not set, showing the pay period' : '');
 
     if (num(p.rate) <= 0) {
       $('#benefitNote').textContent = 'Add a rate per hour to see these amounts.';
@@ -718,7 +728,7 @@
   FIELD_MAP.forEach(function (pair) {
     var el = $(pair[0]);
     if (!el) return;
-    el.addEventListener('input', function () {
+    function take() {
       var value = el.value;
       if (NUMERIC_FIELDS.indexOf(pair[1]) !== -1) {
         value = decimalOnly(value);
@@ -727,7 +737,11 @@
       state.profile[pair[1]] = value;
       syncProfileInputs();
       refresh();
-    });
+    }
+    // A phone's date picker commits with 'change', a keyboard with 'input';
+    // listening for one alone loses the other.
+    el.addEventListener('input', take);
+    el.addEventListener('change', take);
   });
 
   OPTIONS.forEach(function (opt) {
@@ -793,6 +807,11 @@
   $('#benefitWindow').addEventListener('change', function () {
     state.profile.benefitWindow = this.value;
     $('#benefitCustom').hidden = this.value !== 'custom';
+    if (this.value === 'custom') {
+      if (!state.profile.benefitFrom) state.profile.benefitFrom = state.period.start;
+      if (!state.profile.benefitTo) state.profile.benefitTo = state.period.end;
+      syncProfileInputs();
+    }
     refresh();
   });
 
