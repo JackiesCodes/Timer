@@ -39,6 +39,10 @@ Open `index.html` in a browser. No build step, no server, no account.
   back to the calculated one.
 * **Deductions and benefits**, each switched on in *Pay settings* and worked
   out automatically once ticked:
+  * **Allowance** — a flat amount for the period, an amount for each day
+    worked, or both, added to the total as its own line. Tick whether it
+    counts as taxable pay: untaxed, it still reaches the total but is taken
+    out before the tax is worked out.
   * **Tax** — either a **flat rate** above a tax-free amount, or **PAYE
     bands**, which charge each slice of pay at its own rate and name the band
     the pay landed in. Either way a *Less tax* and *Net pay* line appears under
@@ -69,6 +73,9 @@ Open `index.html` in a browser. No build step, no server, no account.
   or any custom range, with `‹` `›` to step to the period before or after.
 * **Day flags.** `H` marks a day as a public holiday, `×` strikes a day out as
   a day off (the row is ruled through, just like on paper).
+* On a phone, the five actions fold into a **menu** behind the header's
+  hamburger, so they cost one line instead of three. On a wider screen they
+  stay a row.
 * **Print / PDF** gives you a clean sheet with the controls stripped out, and
   **Export CSV** hands the same figures to a spreadsheet.
 * **Share TAIMER** opens the phone's own share sheet with the link, and

@@ -35,6 +35,10 @@
   <div class="brand-side">
     <span class="brand-tag">From hours to pay in seconds</span>
     <a class="brand-domain" href="https://taimer.cards/">taimer.cards</a>
+    <button type="button" class="hamburger no-print" id="menuBtn"
+            aria-label="Menu" aria-expanded="false" aria-controls="actionMenu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </header>
 
@@ -161,6 +165,28 @@
         </div>
       </div>
 
+        <label class="check opt"><input type="checkbox" id="allowOn" /><span>Allowance</span></label>
+        <div class="opt-fields" id="allowFields" hidden>
+          <div class="grid">
+            <label class="field">
+              <span>Amount per period</span>
+              <input type="text" inputmode="decimal" id="allowFixed" placeholder="0.00" />
+            </label>
+            <label class="field">
+              <span>Amount per day worked</span>
+              <input type="text" inputmode="decimal" id="allowPerDay" placeholder="0.00" />
+            </label>
+          </div>
+          <label class="check">
+            <input type="checkbox" id="allowTaxed" />
+            <span>Counts as taxable pay</span>
+          </label>
+          <p class="opt-note">Housing, transport, a site allowance — whatever is paid on top of the
+          hours. Fill one field or both: a flat amount for the period, an amount for each day
+          worked, or the two together.</p>
+        </div>
+      </div>
+
       <div class="opt-group">
         <h3>Paid yearly or on leaving</h3>
 
@@ -255,7 +281,7 @@
       </div>
     </details>
 
-    <div class="actions">
+    <div class="actions" id="actionMenu">
       <button type="button" class="btn" id="printBtn">Print / PDF</button>
       <button type="button" class="btn" id="csvBtn">Export CSV</button>
       <button type="button" class="btn danger" id="clearBtn">Clear period</button>
@@ -390,6 +416,12 @@
               <td class="num" id="payCHrs">0.0</td>
               <td class="rate" id="payCRate">× 0.00</td>
               <td class="num money" id="payC">—</td>
+            </tr>
+            <tr id="allowRow" hidden>
+              <th>Allowance</th>
+              <td class="num" id="allowQty">—</td>
+              <td class="rate" id="allowRate">—</td>
+              <td class="num money" id="allowPay">—</td>
             </tr>
             <tr class="total">
               <th colspan="3">Total pay</th>

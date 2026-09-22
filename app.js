@@ -233,6 +233,7 @@
 
         // Paid every period
         taxOn: false, taxMethod: 'flat', taxRate: '', taxFree: '',
+        allowOn: false, allowFixed: '', allowPerDay: '', allowTaxed: true,
         payeBasis: 'monthly', payeBands: null,   // null = the shipped table
         // Paid yearly or on leaving, counted over benefitWindow
         leaveOn: false, leaveDays: '1.25',
@@ -424,7 +425,7 @@
   }
 
   function refresh(opts) {
-    var totals = { a: 0, b: 0, c: 0 };
+    var totals = { a: 0, b: 0, c: 0, days: 0 };
     var rows = body.querySelectorAll('tr[data-d]');
 
     Array.prototype.forEach.call(rows, function (tr) {
@@ -449,6 +450,7 @@
       totals.a += day.normal;
       totals.b += day.ot1;
       totals.c += day.ot2;
+      if (!day.off && day.worked > 0) totals.days += 1;
     });
 
     $('#totA').firstChild.nodeValue = hrs(totals.a);
@@ -761,6 +763,7 @@
     $('#hdrOt2').textContent = m2 + '×';
 
     if (rate <= 0) {
+      renderAllowance(totals, cur);
       lastGross = 0;
       $('#payA').textContent = '—';
       $('#payB').textContent = '—';
@@ -776,7 +779,8 @@
     }
 
     var a = totals.a * rate, b = totals.b * rate * m1, c = totals.c * rate * m2;
-    var gross = a + b + c;
+    var allowance = renderAllowance(totals, cur);
+    var gross = a + b + c + allowance;
     lastGross = gross;
     $('#payA').textContent = cur + ' ' + money(a);
     $('#payB').textContent = cur + ' ' + money(b);
@@ -784,30 +788,53 @@
     $('#payTotal').textContent = cur + ' ' + money(gross);
     $('#payNote').textContent = 'Type 1 pays ' + m1 + '× the hourly rate; type 2 pays ' + m2 + '×.';
 
-    renderTax(gross, cur);
+    // An allowance the employer does not tax is taken out before the tax
+    // is worked out, and put back for the net.
+    renderTax(gross, cur, p.allowOn && !p.allowTaxed ? allowance : 0);
   }
 
-  function renderTax(gross, cur) {
+  // Returns what the allowance comes to, and fills its row.
+  function renderAllowance(totals, cur) {
+    var p = state.profile;
+    $('#allowRow').hidden = !p.allowOn;
+    if (!p.allowOn) return 0;
+
+    var fixed = num(p.allowFixed);
+    var perDay = num(p.allowPerDay);
+    var amount = fixed + perDay * totals.days;
+
+    $('#allowQty').textContent = perDay > 0
+      ? totals.days + ' day' + (totals.days === 1 ? '' : 's') : '—';
+    $('#allowRate').textContent = perDay > 0
+      ? (fixed > 0 ? money(fixed) + ' + ' : '') + money(perDay) + '/day'
+      : (p.allowTaxed ? 'taxable' : 'not taxed');
+    $('#allowPay').textContent = num(p.rate) > 0 || amount > 0
+      ? cur + ' ' + money(amount) : '—';
+    return amount;
+  }
+
+  function renderTax(gross, cur, untaxed) {
     var p = state.profile;
     $('#taxRow').hidden = !p.taxOn;
     $('#netRow').hidden = !p.taxOn;
     if (!p.taxOn) return;
 
+    var taxableGross = Math.max(0, gross - (untaxed || 0));
     var tax, label;
 
     if (p.taxMethod === 'paye') {
-      var r = payeOn(gross);
+      var r = payeOn(taxableGross);
       var b = r.bands[r.band];
       tax = r.tax;
       label = 'band ' + (r.band + 1) + ' · ' + days(num(b.rate)) + '%';
       $('#taxRow').querySelector('th').textContent = 'Less PAYE';
-      $('#payNote').textContent = gross > 0
-        ? 'PAYE on ' + cur + ' ' + money(gross) + ': ' + money(r.bases[r.band]) +
+      $('#payNote').textContent = taxableGross > 0
+        ? 'PAYE on ' + cur + ' ' + money(taxableGross) + ': ' + money(r.bases[r.band]) +
           ' + ' + days(num(b.rate)) + '% above ' + money(num(b.from) / r.div) +
           ' (' + (r.div === 12 ? 'monthly' : 'annual') + ' bands).'
         : 'PAYE bands apply once there are earnings.';
     } else {
-      var taxable = Math.max(0, gross - num(p.taxFree));
+      var taxable = Math.max(0, taxableGross - num(p.taxFree));
       tax = taxable * num(p.taxRate) / 100;
       label = days(num(p.taxRate)) + '% of ' + money(taxable);
       $('#taxRow').querySelector('th').textContent = 'Less tax';
@@ -837,7 +864,9 @@
     ['#workDest', 'workDest'], ['#rate', 'rate'], ['#rateMirror', 'rate'],
     ['#currency', 'currency'],
     ['#standardDay', 'standardDay'], ['#ot1Mult', 'ot1Mult'], ['#ot2Mult', 'ot2Mult'],
-    ['#taxRate', 'taxRate'], ['#taxFree', 'taxFree'], ['#leaveDays', 'leaveDays'],
+    ['#taxRate', 'taxRate'], ['#taxFree', 'taxFree'],
+    ['#allowFixed', 'allowFixed'], ['#allowPerDay', 'allowPerDay'],
+    ['#leaveDays', 'leaveDays'],
     ['#sevDays1', 'sevDays1'], ['#sevDays2', 'sevDays2'],
     ['#grantPct', 'grantPct'], ['#grantFixed', 'grantFixed'],
     ['#benefitFrom', 'benefitFrom'], ['#benefitTo', 'benefitTo']
@@ -850,6 +879,7 @@
     });
     $('#weekendIsOt2').checked = !!state.profile.weekendIsOt2;
     $('#autoHolidays').checked = !!state.profile.autoHolidays;
+    $('#allowTaxed').checked = !!state.profile.allowTaxed;
     $('#periodStart').value = state.period.start;
     $('#periodEnd').value = state.period.end;
 
@@ -868,11 +898,12 @@
   }
 
   var NUMERIC_FIELDS = ['rate', 'standardDay', 'ot1Mult', 'ot2Mult', 'taxRate', 'taxFree',
-    'leaveDays', 'sevDays1', 'sevDays2', 'grantPct', 'grantFixed'];
+    'allowFixed', 'allowPerDay', 'leaveDays', 'sevDays1', 'sevDays2', 'grantPct', 'grantFixed'];
 
   // Each switch in pay settings, with the fields it reveals.
   var OPTIONS = [
     ['#taxOn', 'taxOn', '#taxFields'],
+    ['#allowOn', 'allowOn', '#allowFields'],
     ['#leaveOn', 'leaveOn', '#leaveFields'],
     ['#sevOn', 'sevOn', '#sevFields'],
     ['#grantOn', 'grantOn', '#grantFields']
@@ -965,6 +996,11 @@
       if (!state.profile.benefitTo) state.profile.benefitTo = state.period.end;
       syncProfileInputs();
     }
+    refresh();
+  });
+
+  $('#allowTaxed').addEventListener('change', function () {
+    state.profile.allowTaxed = this.checked;
     refresh();
   });
 
@@ -1142,7 +1178,7 @@
     var p = state.profile;
     var rate = num(p.rate), m1 = num(p.ot1Mult) || 1.5, m2 = num(p.ot2Mult) || 2;
     var lines = [];
-    var t = { a: 0, b: 0, c: 0 };
+    var t = { a: 0, b: 0, c: 0, days: 0 };
 
     lines.push(['TAIMER time sheet'].join(','));
     lines.push(['Name', csv(p.name)].join(','));
@@ -1158,6 +1194,7 @@
       var e = state.entries[dISO] || {};
       var day = calcDay(dISO);
       t.a += day.normal; t.b += day.ot1; t.c += day.ot2;
+      if (!day.off && day.worked > 0) t.days = (t.days || 0) + 1;
       var note = day.off ? 'Day off'
         : day.holiday ? (day.holidayName || 'Public holiday')
         : day.weekend ? DAY_NAMES[day.day] + ' (weekend)' : '';
@@ -1171,20 +1208,31 @@
 
     lines.push('');
     lines.push(['Totals', '', '', '', hrs(t.a), hrs(t.b), hrs(t.c), hrs(t.a + t.b + t.c), ''].join(','));
-    var gross = t.a * rate + t.b * rate * m1 + t.c * rate * m2;
+    var allowance = p.allowOn ? num(p.allowFixed) + num(p.allowPerDay) * t.days : 0;
+    var hoursPay = t.a * rate + t.b * rate * m1 + t.c * rate * m2;
+    var gross = hoursPay + allowance;
+    // The Pay row totals the hours only; the allowance is its own line and
+    // the two meet at Total pay, so no column counts a figure twice.
     lines.push(['Pay', '', '', '',
       plain(t.a * rate), plain(t.b * rate * m1), plain(t.c * rate * m2),
-      plain(gross), csv(p.currency || '')].join(','));
+      plain(hoursPay), csv(p.currency || '')].join(','));
+    if (p.allowOn) {
+      lines.push(['Allowance', csv(plain(num(p.allowFixed)) + ' + ' + plain(num(p.allowPerDay)) +
+                  ' x ' + t.days + ' days' + (p.allowTaxed ? ', taxable' : ', not taxed')),
+                  plain(allowance)].join(','));
+      lines.push(['Total pay', '', plain(gross)].join(','));
+    }
 
     if (p.taxOn) {
+      var taxableGross = gross - (p.allowOn && !p.allowTaxed ? allowance : 0);
       var tax, how;
       if (p.taxMethod === 'paye') {
-        var r = payeOn(gross);
+        var r = payeOn(taxableGross);
         tax = r.tax;
         how = 'PAYE band ' + (r.band + 1) + ' · ' + days(num(r.bands[r.band].rate)) + '% above ' +
               money(num(r.bands[r.band].from) / r.div) + ' (' + (r.div === 12 ? 'monthly' : 'annual') + ' bands)';
       } else {
-        tax = Math.max(0, gross - num(p.taxFree)) * num(p.taxRate) / 100;
+        tax = Math.max(0, taxableGross - num(p.taxFree)) * num(p.taxRate) / 100;
         how = days(num(p.taxRate)) + '% above ' + money(num(p.taxFree));
       }
       lines.push('');
@@ -1448,6 +1496,35 @@
       save();
       renderAccount();
     });
+  });
+
+  /* ── the phone's menu ─────────────────────────────────────────────── */
+
+  var menuBtn = $('#menuBtn'), actionMenu = $('#actionMenu');
+
+  function openMenu(yes) {
+    actionMenu.classList.toggle('open', yes);
+    menuBtn.setAttribute('aria-expanded', yes ? 'true' : 'false');
+  }
+
+  menuBtn.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    openMenu(!actionMenu.classList.contains('open'));
+  });
+
+  // Choosing something closes it, as does tapping away or pressing escape.
+  actionMenu.addEventListener('click', function (ev) {
+    if (ev.target.closest('.btn')) openMenu(false);
+  });
+
+  document.addEventListener('click', function (ev) {
+    if (!actionMenu.classList.contains('open')) return;
+    if (ev.target.closest('#actionMenu') || ev.target.closest('#menuBtn')) return;
+    openMenu(false);
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') openMenu(false);
   });
 
   /* ── offline ──────────────────────────────────────────────────────── */
