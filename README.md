@@ -1,6 +1,6 @@
 # TAIMER
 
-**[taimer.cards](https://taimer.cards/)**
+**[taimer.cards](https://taimer.cards/)** — *from hours to pay in seconds*
 
 A paper-style employee time card that adds up the hours and works out the pay.
 It is a faithful digital copy of the printed time sheet — same columns, same
@@ -137,6 +137,7 @@ visit, since the cached copy is served first and refreshed behind it.
 | `sw.js` | Service worker — caches the app so it runs with no connection |
 | `manifest.webmanifest` | Name, colours and icons for installing it on a phone |
 | `icon-*.png` | Home-screen icons (192, 512 and a maskable 512) |
+| `logo.png` | The wordmark, white on transparency, used in the header |
 | `social-card.png` | The preview image shown when the link is shared |
 | `robots.txt`, `sitemap.xml` | What search engines read |
 | `404.html` | The not-found page, in the same colours |

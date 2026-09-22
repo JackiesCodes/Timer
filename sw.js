@@ -1,6 +1,6 @@
 /* TAIMER service worker — keeps the whole sheet usable with no network. */
 
-var CACHE = 'taimer-v7';
+var CACHE = 'taimer-v8';
 
 var SHELL = [
   './',
@@ -11,7 +11,8 @@ var SHELL = [
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png',
-  './404.html'
+  './404.html',
+  './logo.png'
 ];
 
 self.addEventListener('install', function (ev) {
