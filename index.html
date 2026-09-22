@@ -105,17 +105,59 @@
 
         <label class="check opt"><input type="checkbox" id="taxOn" /><span>Tax deduction</span></label>
         <div class="opt-fields" id="taxFields" hidden>
-          <div class="grid">
-            <label class="field">
-              <span>Tax rate %</span>
-              <input type="text" inputmode="decimal" id="taxRate" placeholder="0" />
-            </label>
-            <label class="field">
-              <span>Tax-free per period</span>
-              <input type="text" inputmode="decimal" id="taxFree" placeholder="0.00" />
-            </label>
+          <span class="qf-label">Tax method</span>
+          <div class="method">
+            <label class="tick"><input type="radio" name="taxMethod" value="flat" /><span>Flat rate<small>a rate you type</small></span></label>
+            <label class="tick"><input type="radio" name="taxMethod" value="paye" /><span>PAYE bands<small>progressive</small></span></label>
           </div>
-          <p class="opt-note">Earnings above the tax-free amount are taxed at this rate. Set it to match your payslip — it is a flat estimate, not a PAYE band table.</p>
+
+          <div id="flatFields">
+            <div class="grid">
+              <label class="field">
+                <span>Tax rate %</span>
+                <input type="text" inputmode="decimal" id="taxRate" placeholder="0" />
+              </label>
+              <label class="field">
+                <span>Tax-free per period</span>
+                <input type="text" inputmode="decimal" id="taxFree" placeholder="0.00" />
+              </label>
+            </div>
+            <p class="opt-note">Earnings above the tax-free amount are taxed at this rate.</p>
+          </div>
+
+          <div id="payeFields" hidden>
+            <label class="field">
+              <span>Tax each pay period as</span>
+              <select id="payeBasis">
+                <option value="monthly">A month — a twelfth of the yearly bands</option>
+                <option value="annual">A year — the full yearly bands</option>
+              </select>
+            </label>
+
+            <table class="bands" id="payeTable">
+              <thead>
+                <tr>
+                  <th id="bandScaleLbl">Income above · per month</th>
+                  <th>Tax to that point</th>
+                  <th>Rate above it</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="payeRows"></tbody>
+            </table>
+
+            <div class="band-actions">
+              <button type="button" class="btn ghost" id="addBand">Add band</button>
+              <button type="button" class="btn ghost" id="resetBands">Reset table</button>
+            </div>
+
+            <p class="opt-note warn" id="payeWarn">
+              <b>Check these against BURS before you rely on them.</b> They are the rates
+              published for resident individuals before Botswana's tax statutes changed on
+              1 July 2026, and reports of the new table disagree with each other. Every figure
+              here is editable — correct a threshold or a rate and the sheet follows.
+            </p>
+          </div>
         </div>
       </div>
 

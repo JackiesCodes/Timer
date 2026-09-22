@@ -39,8 +39,15 @@ Open `index.html` in a browser. No build step, no server, no account.
   back to the calculated one.
 * **Deductions and benefits**, each switched on in *Pay settings* and worked
   out automatically once ticked:
-  * **Tax** — a rate and a tax-free amount per period, giving a *Less tax* and
-    *Net pay* line under the period's total.
+  * **Tax** — either a **flat rate** above a tax-free amount, or **PAYE
+    bands**, which charge each slice of pay at its own rate and name the band
+    the pay landed in. Either way a *Less tax* and *Net pay* line appears under
+    the period's total. The band table ships with the rates long published for
+    resident individuals in Botswana (nil to 48,000 a year, then 5%, 12.5%,
+    18.75%, 25%), shown per month or per year, **but every threshold and rate
+    is editable and should be checked against BURS** — the tax statutes changed
+    on 1 July 2026 and published accounts of the new table disagree. *Reset
+    table* returns to the shipped figures.
   * **Leave days**, **severance pay** and **grant / gratuity** — the things a
     company pays at the end of the year or when someone leaves. They appear in
     their own block, under a **Service period** setting — the dates of service,

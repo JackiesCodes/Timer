@@ -118,7 +118,8 @@
         fillAm: '5', fillPm: '4', fillMode: '', fillDays: [1, 2, 3, 4, 5], fillKeep: false,
 
         // Paid every period
-        taxOn: false, taxRate: '', taxFree: '',
+        taxOn: false, taxMethod: 'flat', taxRate: '', taxFree: '',
+        payeBasis: 'monthly', payeBands: null,   // null = the shipped table
         // Paid yearly or on leaving, counted over benefitWindow
         leaveOn: false, leaveDays: '1.25',
         sevOn: false, sevDays1: '1', sevDays2: '2',
@@ -301,7 +302,7 @@
       '<span class="sigmark">' + (on ? '&#10003;' : '') + '</span></td>';
   }
 
-  function refresh() {
+  function refresh(opts) {
     var totals = { a: 0, b: 0, c: 0 };
     var rows = body.querySelectorAll('tr[data-d]');
 
@@ -336,6 +337,7 @@
 
     renderPay(totals);
     renderBenefits();
+    if (!(opts && opts.keepBands)) renderBandTable();
     syncQuickFill();
     save();
   }
@@ -346,6 +348,78 @@
     input.classList.toggle('auto', !manual);
     if (manual || input === document.activeElement) return;
     input.value = autoValue > 0 ? hrs(autoValue) : '';
+  }
+
+  /* ── PAYE bands ───────────────────────────────────────────────────── */
+
+  // Thresholds are held per year; the monthly view is a twelfth of each.
+  // These are the rates published for resident individuals before Botswana's
+  // tax statutes changed on 1 July 2026 — they ship as a starting point and
+  // every figure is editable in pay settings.
+  var SHIPPED_BANDS = [
+    { from: 0, rate: 0 },
+    { from: 48000, rate: 5 },
+    { from: 84000, rate: 12.5 },
+    { from: 120000, rate: 18.75 },
+    { from: 156000, rate: 25 }
+  ];
+
+  function payeBands() {
+    var saved = state.profile.payeBands;
+    if (!Array.isArray(saved) || !saved.length) {
+      return SHIPPED_BANDS.map(function (b) { return { from: b.from, rate: b.rate }; });
+    }
+    return saved.slice().sort(function (a, b) { return num(a.from) - num(b.from); });
+  }
+
+  function bandDivisor() { return state.profile.payeBasis === 'annual' ? 1 : 12; }
+
+  // Progressive tax: each band is charged only on the slice of income inside
+  // it. Returns the tax and which band the income came to rest in.
+  function payeOn(income) {
+    var bands = payeBands();
+    var div = bandDivisor();
+    var tax = 0, hit = 0, base = 0, bases = [];
+
+    for (var i = 0; i < bands.length; i++) {
+      var from = num(bands[i].from) / div;
+      var to = i + 1 < bands.length ? num(bands[i + 1].from) / div : Infinity;
+      bases.push(base);
+      if (income > from) {
+        tax += (Math.min(income, to) - from) * num(bands[i].rate) / 100;
+        hit = i;
+      }
+      base += (to - from) * num(bands[i].rate) / 100;
+    }
+    return { tax: tax, band: hit, bases: bases, bands: bands, div: div };
+  }
+
+  function renderBandTable() {
+    var bands = payeBands();
+    var div = bandDivisor();
+    $('#bandScaleLbl').textContent = 'Income above · per ' + (div === 12 ? 'month' : 'year');
+    var gross = lastGross;
+    var result = payeOn(gross);
+
+    $('#payeRows').innerHTML = bands.map(function (b, i) {
+      var isHit = state.profile.taxOn && state.profile.taxMethod === 'paye' &&
+                  gross > 0 && i === result.band;
+      return '<tr' + (isHit ? ' class="hit"' : '') + '>' +
+        '<td><input type="text" inputmode="decimal" data-band="' + i + '" data-k="from" ' +
+          'value="' + money(num(b.from) / div) + '" /></td>' +
+        '<td class="base">' + money(result.bases[i]) + '</td>' +
+        '<td><input type="text" inputmode="decimal" data-band="' + i + '" data-k="rate" ' +
+          'value="' + days(num(b.rate)) + '%" /></td>' +
+        '<td class="drop">' + (i === 0 ? '' :
+          '<button type="button" class="band-x" data-drop="' + i + '" title="Remove band">&times;</button>') +
+        '</td></tr>';
+    }).join('');
+  }
+
+  function saveBands(bands) {
+    state.profile.payeBands = bands.map(function (b) {
+      return { from: num(b.from), rate: num(b.rate) };
+    }).sort(function (a, b) { return a.from - b.from; });
   }
 
   /* ── deductions & end-of-term benefits ────────────────────────────── */
@@ -505,6 +579,8 @@
     $('#benefitNote').textContent = note;
   }
 
+  var lastGross = 0;
+
   function renderPay(totals) {
     var p = state.profile;
     var rate = num(p.rate);
@@ -522,6 +598,7 @@
     $('#hdrOt2').textContent = m2 + '×';
 
     if (rate <= 0) {
+      lastGross = 0;
       $('#payA').textContent = '—';
       $('#payB').textContent = '—';
       $('#payC').textContent = '—';
@@ -537,6 +614,7 @@
 
     var a = totals.a * rate, b = totals.b * rate * m1, c = totals.c * rate * m2;
     var gross = a + b + c;
+    lastGross = gross;
     $('#payA').textContent = cur + ' ' + money(a);
     $('#payB').textContent = cur + ' ' + money(b);
     $('#payC').textContent = cur + ' ' + money(c);
@@ -552,9 +630,27 @@
     $('#netRow').hidden = !p.taxOn;
     if (!p.taxOn) return;
 
-    var taxable = Math.max(0, gross - num(p.taxFree));
-    var tax = taxable * num(p.taxRate) / 100;
-    $('#taxRateLbl').textContent = days(num(p.taxRate)) + '% of ' + money(taxable);
+    var tax, label;
+
+    if (p.taxMethod === 'paye') {
+      var r = payeOn(gross);
+      var b = r.bands[r.band];
+      tax = r.tax;
+      label = 'band ' + (r.band + 1) + ' · ' + days(num(b.rate)) + '%';
+      $('#taxRow').querySelector('th').textContent = 'Less PAYE';
+      $('#payNote').textContent = gross > 0
+        ? 'PAYE on ' + cur + ' ' + money(gross) + ': ' + money(r.bases[r.band]) +
+          ' + ' + days(num(b.rate)) + '% above ' + money(num(b.from) / r.div) +
+          ' (' + (r.div === 12 ? 'monthly' : 'annual') + ' bands).'
+        : 'PAYE bands apply once there are earnings.';
+    } else {
+      var taxable = Math.max(0, gross - num(p.taxFree));
+      tax = taxable * num(p.taxRate) / 100;
+      label = days(num(p.taxRate)) + '% of ' + money(taxable);
+      $('#taxRow').querySelector('th').textContent = 'Less tax';
+    }
+
+    $('#taxRateLbl').textContent = label;
     $('#payTax').textContent = cur + ' ' + money(tax);
     $('#payNet').textContent = cur + ' ' + money(gross - tax);
   }
@@ -598,6 +694,12 @@
       $(opt[0]).checked = !!state.profile[opt[1]];
       $(opt[2]).hidden = !state.profile[opt[1]];
     });
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="taxMethod"]'), function (r) {
+      r.checked = r.value === state.profile.taxMethod;
+    });
+    $('#flatFields').hidden = state.profile.taxMethod === 'paye';
+    $('#payeFields').hidden = state.profile.taxMethod !== 'paye';
+    $('#payeBasis').value = state.profile.payeBasis;
     $('#benefitWindow').value = state.profile.benefitWindow;
     $('#benefitCustom').hidden = state.profile.benefitWindow !== 'custom';
   }
@@ -634,6 +736,58 @@
       $(opt[2]).hidden = !this.checked;
       refresh();
     });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="taxMethod"]'), function (radio) {
+    radio.addEventListener('change', function () {
+      state.profile.taxMethod = radio.value;
+      syncProfileInputs();
+      refresh();
+    });
+  });
+
+  $('#payeBasis').addEventListener('change', function () {
+    state.profile.payeBasis = this.value;
+    refresh();
+  });
+
+  // Editing a threshold or a rate in the table
+  $('#payeRows').addEventListener('input', function (ev) {
+    var el = ev.target;
+    if (!el.hasAttribute || !el.hasAttribute('data-band')) return;
+    var clean = decimalOnly(el.value);
+    var bands = payeBands();
+    var i = +el.getAttribute('data-band');
+    if (!bands[i]) return;
+    bands[i][el.getAttribute('data-k')] = el.getAttribute('data-k') === 'from'
+      ? num(clean) * bandDivisor()
+      : num(clean);
+    saveBands(bands);
+    refresh({ keepBands: true });
+  });
+
+  $('#payeRows').addEventListener('change', function () { renderBandTable(); });
+
+  $('#payeRows').addEventListener('click', function (ev) {
+    var btn = ev.target.closest('.band-x');
+    if (!btn) return;
+    var bands = payeBands();
+    bands.splice(+btn.getAttribute('data-drop'), 1);
+    saveBands(bands);
+    refresh();
+  });
+
+  $('#addBand').addEventListener('click', function () {
+    var bands = payeBands();
+    var last = bands[bands.length - 1];
+    bands.push({ from: num(last.from) + 12000 * bandDivisor() / 12, rate: num(last.rate) });
+    saveBands(bands);
+    refresh();
+  });
+
+  $('#resetBands').addEventListener('click', function () {
+    state.profile.payeBands = null;
+    refresh();
   });
 
   $('#benefitWindow').addEventListener('change', function () {
@@ -818,10 +972,18 @@
       plain(gross), csv(p.currency || '')].join(','));
 
     if (p.taxOn) {
-      var taxable = Math.max(0, gross - num(p.taxFree));
-      var tax = taxable * num(p.taxRate) / 100;
+      var tax, how;
+      if (p.taxMethod === 'paye') {
+        var r = payeOn(gross);
+        tax = r.tax;
+        how = 'PAYE band ' + (r.band + 1) + ' · ' + days(num(r.bands[r.band].rate)) + '% above ' +
+              money(num(r.bands[r.band].from) / r.div) + ' (' + (r.div === 12 ? 'monthly' : 'annual') + ' bands)';
+      } else {
+        tax = Math.max(0, gross - num(p.taxFree)) * num(p.taxRate) / 100;
+        how = days(num(p.taxRate)) + '% above ' + money(num(p.taxFree));
+      }
       lines.push('');
-      lines.push(['Tax', csv(hrs(num(p.taxRate)) + '% above ' + money(num(p.taxFree))), plain(tax)].join(','));
+      lines.push(['Tax', csv(how), plain(tax)].join(','));
       lines.push(['Net pay', '', plain(gross - tax)].join(','));
     }
 

@@ -243,6 +243,77 @@ input, button, select { font-family: var(--sans); }
 }
 #benefitCustom { margin-top: 10px; }
 
+.method {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+
+table.bands {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  margin-top: 10px;
+  background: var(--white);
+}
+table.bands th,
+table.bands td {
+  border: 1px solid var(--rule);
+  padding: 5px 7px;
+  font-size: 12px;
+  text-align: right;
+}
+table.bands th {
+  background: var(--navy);
+  color: var(--white);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+}
+table.bands td.base { color: var(--ink-soft); }
+table.bands tr.hit td { background: rgba(23, 131, 193, .12); font-weight: 700; }
+table.bands input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  font-size: 13px;
+  font-family: var(--sans);
+  color: var(--ink);
+  padding: 2px;
+  font-variant-numeric: tabular-nums;
+}
+table.bands input:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+  background: rgba(23, 131, 193, .07);
+}
+table.bands td.drop { width: 26px; padding: 0; }
+table.bands .band-x {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 0;
+  cursor: pointer;
+}
+table.bands .band-x:hover { color: var(--accent); }
+
+.band-actions { display: flex; gap: 8px; margin-top: 10px; }
+.band-actions .btn { padding: 6px 10px; font-size: 10.5px; }
+
+.opt-note.warn {
+  border-left: 3px solid var(--accent, #b9451d);
+  background: #fff;
+  padding: 8px 10px;
+  margin-top: 12px;
+}
+.opt-note.warn b { color: var(--navy); }
+
 /* ── the sheet ───────────────────────────────────────────────────────── */
 
 .sheet-outer { filter: drop-shadow(0 2px 8px rgba(10, 60, 110, .14)); }
