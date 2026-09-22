@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Issue a licence — TAIMER</title>
+<meta name="robots" content="noindex" />
+<meta name="theme-color" content="#0a3c6e" />
+<link rel="stylesheet" href="../styles.css" />
+<style>
+  .issuer { max-width: 620px; }
+  .issuer textarea {
+    width: 100%; min-height: 96px; font-family: var(--sans); font-size: 13px;
+    border: 1px solid var(--rule); border-radius: 3px; padding: 9px; resize: vertical;
+  }
+  .out {
+    margin-top: 14px; padding: 12px; background: var(--navy); color: #fff;
+    border-radius: 3px; font-size: 13px; word-break: break-all; line-height: 1.6; display: none;
+  }
+  .out.show { display: block; }
+  .warn-box { border-left: 3px solid var(--accent); background: #fff; padding: 10px 12px; margin: 14px 0; font-size: 12.5px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header class="brand">
+  <img class="brand-logo" src="../logo.png" alt="TAIMER" width="1075" height="220" />
+  <div class="brand-side"><span class="brand-tag">Licence issuing</span></div>
+</header>
+
+<main class="wrap prose issuer">
+  <h1>Issue a licence</h1>
+  <p class="updated">For you, not for customers. Nothing here is sent anywhere — the key is signed in this
+  page, on this device.</p>
+
+  <div class="warn-box">
+    <b>Your signing key never leaves this page.</b> It is not saved, not remembered and not transmitted.
+    Close the tab and it is gone from the browser. Keep the file itself somewhere safe and backed up:
+    lose it and you cannot issue keys that work with the copies already out there.
+  </div>
+
+  <h2>1 · Your signing key</h2>
+  <label class="field">
+    <span>Paste the contents of tools/private-key.jwk</span>
+    <textarea id="priv" placeholder='{ "kty": "EC", "crv": "P-256", "d": "…", "x": "…", "y": "…" }'></textarea>
+  </label>
+
+  <h2>2 · Who it is for</h2>
+  <div class="grid">
+    <label class="field"><span>Plan</span>
+      <input type="text" id="plan" value="pro" />
+    </label>
+    <label class="field"><span>Name on the licence</span>
+      <input type="text" id="name" placeholder="Albin Mashabe" />
+    </label>
+    <label class="field"><span>Runs until (blank for no end)</span>
+      <input type="date" id="expires" />
+    </label>
+    <label class="field"><span>Tie to one copy (optional)</span>
+      <input type="text" id="copy" placeholder="the code shown in their Pay settings" />
+    </label>
+  </div>
+
+  <div class="band-actions">
+    <button type="button" class="btn" id="make">Make the key</button>
+    <button type="button" class="btn ghost" id="copyBtn">Copy</button>
+  </div>
+
+  <div class="out" id="out"></div>
+
+  <p class="site-foot"><a href="../index.html">Back to the time card</a></p>
+</main>
+
+<script>
+(function () {
+  var ALGO = { name: 'ECDSA', namedCurve: 'P-256' };
+  var SIGN = { name: 'ECDSA', hash: 'SHA-256' };
+  var out = document.getElementById('out');
+
+  function b64url(buf) {
+    var bin = '';
+    new Uint8Array(buf).forEach(function (b) { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function say(text, ok) {
+    out.textContent = text;
+    out.style.background = ok ? '#0a3c6e' : '#333333';
+    out.className = 'out show';
+  }
+
+  document.getElementById('make').addEventListener('click', function () {
+    var jwk;
+    try {
+      jwk = JSON.parse(document.getElementById('priv').value);
+    } catch (err) {
+      return say('That is not the key file — paste everything from the opening brace to the closing one.', false);
+    }
+    if (!jwk.d) return say('That looks like the public half. The signing key has a "d" in it.', false);
+
+    var claim = {
+      p: (document.getElementById('plan').value || 'pro').trim(),
+      n: document.getElementById('name').value.trim(),
+      e: document.getElementById('expires').value,
+      c: document.getElementById('copy').value.trim(),
+      k: Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4)
+    };
+    var body = new TextEncoder().encode(JSON.stringify(claim));
+
+    crypto.subtle.importKey('jwk', jwk, ALGO, false, ['sign'])
+      .then(function (key) { return crypto.subtle.sign(SIGN, key, body); })
+      .then(function (sig) { say('TAIMER1.' + b64url(body) + '.' + b64url(sig), true); })
+      .catch(function () { say('That key could not be used for signing. Check you pasted the whole file.', false); });
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    if (!out.textContent || !out.classList.contains('show')) return;
+    navigator.clipboard.writeText(out.textContent).then(function () {
+      var b = document.getElementById('copyBtn'), was = b.textContent;
+      b.textContent = 'Copied'; setTimeout(function () { b.textContent = was; }, 1800);
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /* TAIMER service worker — keeps the whole sheet usable with no network. */
 
-var CACHE = 'taimer-v11';
+var CACHE = 'taimer-v12';
 
 var SHELL = [
   './',

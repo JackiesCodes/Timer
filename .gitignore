@@ -1,0 +1,3 @@
+tools/private-key.jwk
+*.pem
+node_modules/

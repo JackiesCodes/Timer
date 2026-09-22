@@ -127,6 +127,82 @@
 
   function plan() { return PLANS[state.account && state.account.plan] || PLANS.free; }
 
+  /* ── licences ─────────────────────────────────────────────────────── */
+
+  // The public half of the signing pair. Keys are signed on your own
+  // machine and checked here on the device — no server is asked, so a key
+  // works the same with no signal. Replace it with "node tools/keygen.mjs
+  // init", which writes the private half to tools/private-key.jwk.
+  var LICENCE_KEY_PUBLIC = {"kty":"EC","crv":"P-256","x":"fbi0VHZeC5xv124VzWN5o5PZ3c0aQql_C1vHoZgZz-Q","y":"6ga-FVhF0_dYtZ51jgxWfYGSKVFPPsRCGSGMRkJQ49Y"};
+
+  function fromB64url(str) {
+    str = String(str).replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    var bin = atob(str);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  // Resolves to the licence a key carries, or to a reason it was refused.
+  function readLicence(key) {
+    key = String(key || '').replace(/\s+/g, '');
+
+    if (!key) return Promise.resolve({ ok: false, why: 'empty' });
+    if (!LICENCE_KEY_PUBLIC) return Promise.resolve({ ok: false, why: 'not-issuing' });
+
+    var parts = key.split('.');
+    if (parts.length !== 3 || parts[0] !== 'TAIMER1') return Promise.resolve({ ok: false, why: 'shape' });
+
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!subtle) return Promise.resolve({ ok: false, why: 'no-crypto' });
+
+    var body, claim;
+    try {
+      body = fromB64url(parts[1]);
+      claim = JSON.parse(new TextDecoder().decode(body));
+    } catch (err) {
+      return Promise.resolve({ ok: false, why: 'shape' });
+    }
+
+    return subtle.importKey('jwk', LICENCE_KEY_PUBLIC, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify'])
+      .then(function (pub) {
+        return subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, fromB64url(parts[2]), body);
+      })
+      .then(function (good) {
+        if (!good) return { ok: false, why: 'signature' };
+        if (claim.e && claim.e < iso(new Date())) return { ok: false, why: 'expired', claim: claim };
+        if (claim.c && claim.c !== state.account.installId) return { ok: false, why: 'other-copy', claim: claim };
+        if (!PLANS[claim.p]) return { ok: false, why: 'unknown-plan', claim: claim };
+        return { ok: true, claim: claim };
+      })
+      .catch(function () { return { ok: false, why: 'shape' }; });
+  }
+
+  var LICENCE_WORDS = {
+    empty: 'Enter the key you were sent.',
+    shape: 'That does not look like a TAIMER key. Paste the whole thing, including the part before the first dot.',
+    signature: 'That key was not issued for TAIMER, or it has been altered.',
+    expired: 'That key has run out.',
+    'other-copy': 'That key belongs to another copy of TAIMER.',
+    'unknown-plan': 'That key names a plan this version does not know. Update the app and try again.',
+    'no-crypto': 'Keys can only be checked over a secure connection. Open taimer.cards rather than a local file.',
+    'not-issuing': 'Keys are not in use yet — every feature is already yours.'
+  };
+
+  // Applied at start-up too, so an expired key quietly reverts to free.
+  function applyStoredLicence() {
+    var key = state.account.licenceKey;
+    if (!key) return;
+    readLicence(key).then(function (res) {
+      state.account.plan = res.ok ? res.claim.p : 'free';
+      state.account.holder = res.ok ? (res.claim.n || '') : '';
+      state.account.expires = res.ok ? (res.claim.e || '') : '';
+      save();
+      renderAccount();
+    });
+  }
+
   // Ask before doing anything that might one day be paid for.
   function can(feature) { return plan().features[feature] !== false; }
   function limitOf(name) { var v = plan()[name]; return v === undefined ? Infinity : v; }
@@ -166,7 +242,8 @@
       },
       period: { start: iso(first), end: iso(last) },
       entries: {},
-      account: { plan: 'free', licenceKey: '', installId: newInstallId(), since: iso(today) },
+      account: { plan: 'free', licenceKey: '', holder: '', expires: '',
+                 installId: newInstallId(), since: iso(today) },
       usage: { prints: 0, exports: 0, shares: 0, posters: 0 },
       schema: SCHEMA
     };
@@ -415,7 +492,9 @@
 
   function renderAccount() {
     var a = state.account, u = state.usage || {}, r = recorded();
-    $('#planName').textContent = plan().name;
+    $('#planName').textContent = plan().name +
+      (a.holder ? ' · ' + a.holder : '') +
+      (a.expires ? ' · until ' + a.expires : '');
     $('#installId').textContent = (a.installId || '').slice(0, 8);
     $('#usageLine').textContent =
       r.months + ' month' + (r.months === 1 ? '' : 's') + ' recorded · ' +
@@ -1351,9 +1430,24 @@
 
   $('#licenceApply').addEventListener('click', function () {
     var note = $('#licenceNote');
-    note.textContent = state.account.licenceKey
-      ? 'Keys are not in use yet — every feature is already yours. This one is kept for when that changes.'
-      : 'Every feature is free at the moment, so there is no key to enter.';
+    note.textContent = 'Checking…';
+    readLicence(state.account.licenceKey).then(function (res) {
+      if (res.ok) {
+        state.account.plan = res.claim.p;
+        state.account.holder = res.claim.n || '';
+        state.account.expires = res.claim.e || '';
+        note.textContent = 'Key accepted — ' + PLANS[res.claim.p].name +
+          (res.claim.n ? ' for ' + res.claim.n : '') +
+          (res.claim.e ? ', until ' + res.claim.e : ', with no end date') + '.';
+      } else {
+        state.account.plan = 'free';
+        state.account.holder = '';
+        state.account.expires = '';
+        note.textContent = LICENCE_WORDS[res.why] || LICENCE_WORDS.shape;
+      }
+      save();
+      renderAccount();
+    });
   });
 
   /* ── offline ──────────────────────────────────────────────────────── */
@@ -1380,6 +1474,7 @@
 
   syncProfileInputs();
   renderAccount();
+  applyStoredLicence();
   bindQuickFill();
   renderHeader();
   renderRows();

@@ -142,10 +142,40 @@ something later is a change of configuration rather than surgery:
 * `terms.html` and `privacy.html` say plainly what the app does with what you
   type, which is nothing: every payment processor asks for both.
 
+### Licence keys
+
+Keys are signed by you and checked on the device. No processor, no accounts, no
+server, and a key works with no signal — which is the point, given where this
+app is used.
+
+    node tools/keygen.mjs init
+        Makes the signing pair once. The private half lands in
+        tools/private-key.jwk, which .gitignore keeps out of the repository;
+        the public half is written into app.js for the app to check against.
+
+    node tools/keygen.mjs issue --plan pro --name "Someone" --expires 2027-12-31
+        Prints a key to send to whoever paid. Add --copy <id> to tie it to one
+        installation — the code shown in that person's pay settings.
+
+`tools/issue.html` does the same in a browser, for when there is no Node to
+hand: paste the key file, fill in the name, get a key. It signs in the page and
+sends nothing anywhere.
+
+Guard the private key. If it is lost, keys already issued keep working but no
+new ones can be made without replacing the pair, which invalidates every key
+already out there.
+
+A key names a plan, a holder, an optional end date and an optional
+installation. The app checks the signature, the date and the installation, then
+sets `account.plan`. Since both plans currently allow everything, a key changes
+only what the panel says — the moment you narrow `PLANS.free`, it starts to
+mean something.
+
 Worth knowing before building on it: this is a static app, so anything enforced
-only in the browser can be bypassed by whoever holds the phone. Features that
-need a server of yours — backup, sync between phones, a supervisor seeing a
-crew's sheets — are the ones that enforce themselves.
+only in the browser can be bypassed by whoever holds the phone — a key cannot be
+forged without your private key, but a determined person can edit their own copy
+of the code. Features that need a server of yours — backup, sync between phones,
+a supervisor seeing a crew's sheets — are the ones that enforce themselves.
 
 ## Notes
 
