@@ -164,6 +164,33 @@
       <div class="opt-group">
         <h3>Paid yearly or on leaving</h3>
 
+        <div class="win-block">
+          <span class="qf-label">Service period — used by all three below</span>
+          <label class="field win-field">
+            <span>Dates of service — not the pay period above</span>
+            <select id="benefitWindow">
+              <option value="custom">Dates of service (set below)</option>
+              <option value="period">Same as this pay period</option>
+              <option value="ytd">Year to date</option>
+              <option value="12m">Last 12 months</option>
+              <option value="all">First to last day on record</option>
+            </select>
+          </label>
+          <div class="grid" id="benefitCustom" hidden>
+            <label class="field">
+              <span>Started work</span>
+              <input type="date" id="benefitFrom" />
+            </label>
+            <label class="field">
+              <span>Last day</span>
+              <input type="date" id="benefitTo" />
+            </label>
+          </div>
+          <p class="opt-note">Leave and severance count every month between these dates — they do not
+          depend on which hours were captured on the time sheet. Only the grant's percentage uses what
+          this sheet recorded.</p>
+        </div>
+
         <label class="check opt"><input type="checkbox" id="leaveOn" /><span>Leave days</span></label>
         <div class="opt-fields" id="leaveFields" hidden>
           <div class="grid">
@@ -172,7 +199,8 @@
               <input type="text" inputmode="decimal" id="leaveDays" placeholder="1.25" />
             </label>
           </div>
-          <p class="opt-note">Botswana's minimum is 15 working days a year — 1.25 a month.</p>
+          <p class="opt-note">Botswana's minimum is 15 working days a year — 1.25 a month,
+          counted over the service period above.</p>
         </div>
 
         <label class="check opt"><input type="checkbox" id="sevOn" /><span>Severance pay</span></label>
@@ -187,7 +215,8 @@
               <input type="text" inputmode="decimal" id="sevDays2" placeholder="2" />
             </label>
           </div>
-          <p class="opt-note">Botswana's severance benefit is one day's basic pay for each month of the first 60, and two days a month after that.</p>
+          <p class="opt-note">Botswana's severance benefit is one day's basic pay for each month of
+          the first 60, and two days a month after that — counted over the service period above.</p>
         </div>
 
         <label class="check opt"><input type="checkbox" id="grantOn" /><span>Grant / gratuity</span></label>
@@ -204,29 +233,7 @@
           </div>
         </div>
 
-        <label class="field win-field">
-          <span>Service period — not the pay period above</span>
-          <select id="benefitWindow">
-            <option value="custom">Dates of service (set below)</option>
-            <option value="period">Same as this pay period</option>
-            <option value="ytd">Year to date</option>
-            <option value="12m">Last 12 months</option>
-            <option value="all">First to last day on record</option>
-          </select>
-        </label>
-        <div class="grid" id="benefitCustom" hidden>
-          <label class="field">
-            <span>Started work</span>
-            <input type="date" id="benefitFrom" />
-          </label>
-          <label class="field">
-            <span>Last day</span>
-            <input type="date" id="benefitTo" />
-          </label>
-        </div>
-        <p class="opt-note">Leave and severance count every month between these dates — they do not
-        depend on which hours were captured on the time sheet. Only the grant's percentage uses what
-        this sheet recorded.</p>
+
       </div>
     </details>
 

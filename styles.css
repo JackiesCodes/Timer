@@ -226,7 +226,18 @@ input, button, select { font-family: var(--sans); }
   color: var(--ink-soft);
 }
 
-.win-field { margin-top: 14px; }
+.win-block {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--navy);
+  background: var(--white);
+  border-radius: 0 3px 3px 0;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.win-block .qf-label { color: var(--navy); margin-bottom: 8px; }
+.win-block .opt-note { margin-top: 10px; }
+
+.win-field { margin-top: 10px; }
 .win-field select {
   font-size: 14px;
   color: var(--ink);
