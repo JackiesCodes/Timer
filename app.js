@@ -946,6 +946,35 @@
 
   $('#printBtn').addEventListener('click', function () { window.print(); });
 
+  // Hand the link to whatever the phone shares with — WhatsApp, messages,
+  // mail — and fall back to the clipboard on a desktop that has no sheet.
+  $('#shareBtn').addEventListener('click', function () {
+    var btn = this;
+    var share = {
+      title: 'TAIMER — from hours to pay in seconds',
+      text: 'TAIMER turns your time card into hours and pay. Fill a month in one tick and it counts the overtime, the weekends and the public holidays. Works offline, and installs to your home screen.',
+      url: 'https://taimer.cards/'
+    };
+
+    function said(word) {
+      var was = btn.textContent;
+      btn.textContent = word;
+      setTimeout(function () { btn.textContent = was; }, 2200);
+    }
+
+    if (navigator.share) {
+      navigator.share(share).catch(function () { /* the person closed the sheet */ });
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(share.text + ' ' + share.url)
+        .then(function () { said('Link copied'); })
+        .catch(function () { said('taimer.cards'); });
+      return;
+    }
+    said('taimer.cards');
+  });
+
   $('#clearBtn').addEventListener('click', function () {
     if (!window.confirm('Clear all hours entered in this period?')) return;
     periodDates().forEach(function (d) { delete state.entries[d]; });

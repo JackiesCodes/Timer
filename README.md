@@ -139,5 +139,6 @@ visit, since the cached copy is served first and refreshed behind it.
 | `icon-*.png` | Home-screen icons (192, 512 and a maskable 512) |
 | `logo.png` | The wordmark, white on transparency, used in the header |
 | `social-card.png` | The preview image shown when the link is shared |
+| `share-card.png` | A poster with the QR code, for passing the app around |
 | `robots.txt`, `sitemap.xml` | What search engines read |
 | `404.html` | The not-found page, in the same colours |
